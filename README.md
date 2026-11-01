@@ -1,0 +1,75 @@
+# Kitchen Dashboard
+
+An always-on page for an old Fire HD 8 tablet showing the time, date, weather and
+what's on today. Weather comes from [Open-Meteo](https://open-meteo.com), which needs
+no API key and is free for non-commercial use.
+
+## Run it
+
+```sh
+npm install
+npm run serve        # http://<this-computer's-ip>:8000
+```
+
+The dashboard depends on this server, so it has to run on something that stays on,
+such as a Raspberry Pi or NAS, set to the same time zone as the tablet. A static host
+won't work, because calendar providers don't let browsers read their feeds directly.
+
+The weather location is stored only on the tablet.
+
+## Add calendars
+
+Create `calendars.json` next to this file, using `calendars.example.json` as a
+starting point, then restart the server:
+
+```json
+[
+  { "name": "Family", "url": "https://calendar.google.com/calendar/ical/.../basic.ics" },
+  { "name": "Bins", "url": "webcal://example.com/bins.ics" }
+]
+```
+
+`name` is shown beside each event when you have more than one calendar. In Google
+Calendar, the address is under Settings > your calendar > "Public address in iCal format".
+
+`calendars.json` is ignored by git and never served, because feed addresses can work
+like passwords. Event titles are visible to anyone on your network who opens the page.
+
+Feeds are fetched at most every 15 minutes. Finished events drop off the list through
+the day, and an amber note names any calendar that can't be updated.
+
+## Set up the tablet
+
+1. Open the page and search for your town. Tap the place name at the bottom left to change it later.
+2. Keep the screen on: Settings > Device Options > tap Serial Number 7 times, then
+   Developer Options > Stay Awake. This only applies while it's charging.
+3. For true full screen, use a kiosk browser such as Fully Kiosk Browser instead of Silk.
+
+### If it says "Can't search right now" or "Can't get the weather"
+
+Check the Wi-Fi first. If that's fine, check the Fire OS version under Settings >
+Device Options > System Updates. Open-Meteo's HTTPS certificate relies on a root
+certificate that Android only gained in 7.1.1, so Fire OS 5 (Android 5.1) may refuse
+the connection. Fire OS 6 and later (Android 7.1 or newer) should be fine.
+
+## Develop
+
+```sh
+npm install
+npm run check        # ES5 syntax check and unit tests
+```
+
+- `server/`: serves the page and fetches calendars. Runs on Node, so modern syntax is fine.
+- `js/core.js`: pure browser logic (formatting, forecast and event shaping), covered by `test/`.
+- `js/app.js`: timers, network, storage and DOM.
+- `css/dashboard.css`: sized in rem from the screen's short side, so it scales as one piece.
+
+New files the browser needs must be added to `PUBLIC_FILES` in `server/index.js`.
+
+Browser support is the main constraint for `js/` and `css/`. Keep to ES5 and `XMLHttpRequest` (no `fetch`,
+`let` or arrow functions in `js/`), and to flexbox with margins (no CSS grid, flex
+`gap` or custom properties). `npm run lint:es5` catches syntax only, not newer APIs or CSS.
+
+## License
+
+Licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).

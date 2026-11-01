@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#14171a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Kitchen Dashboard</title>
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+  <!-- Weather icons, inlined so they need no extra requests or emoji font support. -->
+  <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="icon-clear-day" viewBox="0 0 48 48">
+      <g fill="none" stroke="#f5b942" stroke-width="3" stroke-linecap="round">
+        <circle cx="24" cy="24" r="9"/>
+        <path d="M24 5v5M24 38v5M5 24h5M38 24h5M10.6 10.6l3.5 3.5M33.9 33.9l3.5 3.5M10.6 37.4l3.5-3.5M33.9 14.1l3.5-3.5"/>
+      </g>
+    </symbol>
+    <symbol id="icon-clear-night" viewBox="0 0 48 48">
+      <path d="M38 29.5A16 16 0 0 1 18.5 10a16 16 0 1 0 19.5 19.5z" fill="none" stroke="#c9d3e6" stroke-width="3" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="icon-partly-day" viewBox="0 0 48 48">
+      <g fill="none" stroke="#f5b942" stroke-width="3" stroke-linecap="round">
+        <path d="M12.5 20a7.5 7.5 0 0 1 13.4-4.6"/>
+        <path d="M18 3v4M5 8l2.8 2.8M31 8l-2.8 2.8M2 20h4"/>
+      </g>
+      <path d="M16 42h19a8 8 0 0 0 1.4-15.9A11 11 0 0 0 15.3 24.5 8.8 8.8 0 0 0 16 42z" fill="none" stroke="#d5d9dd" stroke-width="3" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="icon-partly-night" viewBox="0 0 48 48">
+      <path d="M24 13.5A10 10 0 0 1 13 3a11 11 0 0 0-7 17" fill="none" stroke="#c9d3e6" stroke-width="3" stroke-linecap="round"/>
+      <path d="M16 42h19a8 8 0 0 0 1.4-15.9A11 11 0 0 0 15.3 24.5 8.8 8.8 0 0 0 16 42z" fill="none" stroke="#d5d9dd" stroke-width="3" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="icon-cloud" viewBox="0 0 48 48">
+      <path d="M14 38h21a9 9 0 0 0 1.6-17.9A12.5 12.5 0 0 0 12.8 18 10 10 0 0 0 14 38z" fill="none" stroke="#d5d9dd" stroke-width="3" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="icon-fog" viewBox="0 0 48 48">
+      <path d="M8 16h32M4 24h40M8 32h32M14 40h20" fill="none" stroke="#b5bbc1" stroke-width="3" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="icon-drizzle" viewBox="0 0 48 48">
+      <path d="M14 30h21a8 8 0 0 0 1.4-15.9A11.5 11.5 0 0 0 13 12.5 9 9 0 0 0 14 30z" fill="none" stroke="#d5d9dd" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M16 37v1M24 40v1M32 37v1" fill="none" stroke="#6db3e8" stroke-width="3" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="icon-rain" viewBox="0 0 48 48">
+      <path d="M14 30h21a8 8 0 0 0 1.4-15.9A11.5 11.5 0 0 0 13 12.5 9 9 0 0 0 14 30z" fill="none" stroke="#d5d9dd" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M17 35l-2 7M25 35l-2 7M33 35l-2 7" fill="none" stroke="#6db3e8" stroke-width="3" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="icon-snow" viewBox="0 0 48 48">
+      <path d="M14 30h21a8 8 0 0 0 1.4-15.9A11.5 11.5 0 0 0 13 12.5 9 9 0 0 0 14 30z" fill="none" stroke="#d5d9dd" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M16 37v.1M24 41v.1M32 37v.1" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="icon-thunder" viewBox="0 0 48 48">
+      <path d="M14 30h21a8 8 0 0 0 1.4-15.9A11.5 11.5 0 0 0 13 12.5 9 9 0 0 0 14 30z" fill="none" stroke="#d5d9dd" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M26 26l-6 9h7l-4 9" fill="none" stroke="#f5b942" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="icon-drop" viewBox="0 0 48 48">
+      <path d="M24 5c7 10 14 16.500 14 25a14 14 0 0 1-28 0c0-8.500 7-15 14-25z" fill="#6db3e8"/>
+    </symbol>
+  </svg>
+
+  <main id="dashboard" class="dashboard no-events">
+    <div class="columns">
+      <div class="column-today">
+        <section class="clock" aria-label="Time and date">
+          <div id="time" class="time"></div>
+          <div id="date" class="date"></div>
+        </section>
+
+        <section class="events" aria-label="Today's events">
+          <ul id="events-list" class="events-list"></ul>
+          <p id="events-message" class="events-message" role="status"></p>
+          <p id="events-warning" class="events-warning"></p>
+        </section>
+      </div>
+
+      <div class="column-weather">
+      <section class="current" aria-label="Current weather">
+        <div id="current-weather" class="is-hidden">
+          <div class="current-main">
+            <span id="current-icon" class="current-icon"></span>
+            <span id="current-temp" class="current-temp"></span>
+          </div>
+          <div id="current-label" class="current-label"></div>
+          <dl class="stats">
+            <div class="stat"><dt>Feels like</dt><dd id="stat-feels"></dd></div>
+            <div class="stat"><dt>High</dt><dd id="stat-high"></dd></div>
+            <div class="stat"><dt>Low</dt><dd id="stat-low"></dd></div>
+            <div class="stat"><dt>Rain</dt><dd id="stat-rain"></dd></div>
+          </dl>
+        </div>
+        <p id="weather-message" class="weather-message" role="status"></p>
+      </section>
+
+      <section class="hours" aria-label="Next few hours">
+        <ol id="hours" class="hours-list"></ol>
+      </section>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <button id="location-button" class="location-button" type="button" aria-label="Change location"></button>
+      <span id="weather-status" class="weather-status"></span>
+    </footer>
+  </main>
+
+  <section id="setup" class="setup is-hidden" aria-labelledby="setup-title">
+    <div class="setup-inner">
+      <h1 id="setup-title" class="setup-title">Where's this kitchen?</h1>
+      <form id="setup-form" class="setup-form" autocomplete="off">
+        <label class="setup-label" for="setup-input">Town or city</label>
+        <div class="setup-row">
+          <input id="setup-input" class="setup-input" type="text" maxlength="80">
+          <button class="setup-submit" type="submit">Search</button>
+        </div>
+      </form>
+      <p id="setup-message" class="setup-message" role="status"></p>
+      <ul id="setup-results" class="setup-results"></ul>
+      <button id="setup-cancel" class="setup-cancel is-hidden" type="button">Cancel</button>
+    </div>
+  </section>
+
+  <script src="js/core.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

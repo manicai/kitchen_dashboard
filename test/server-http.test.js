@@ -1,0 +1,77 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const http = require('node:http');
+const path = require('node:path');
+const { createServer } = require('../server/index.js');
+
+const ROOT = path.join(__dirname, '..');
+
+async function withServer(store, run) {
+  const server = createServer({ store, root: ROOT });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    await run('http://127.0.0.1:' + server.address().port);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
+
+// fetch() normalises "..", so traversal attempts need a raw request.
+function rawGet(base, requestPath) {
+  const { hostname, port } = new URL(base);
+  return new Promise((resolve, reject) => {
+    http.get({ hostname, port, path: requestPath }, (res) => {
+      res.resume();
+      res.on('end', () => resolve(res.statusCode));
+    }).on('error', reject);
+  });
+}
+
+const idleStore = { today: async () => ({ date: '2026-11-04', configured: 0, events: [], failed: [] }) };
+
+test('serves the dashboard page and its assets with the right types', async () => {
+  await withServer(idleStore, async (base) => {
+    const page = await fetch(base + '/');
+    assert.equal(page.status, 200);
+    assert.match(page.headers.get('content-type'), /text\/html/);
+    assert.match(await page.text(), /Kitchen Dashboard/);
+    assert.match((await fetch(base + '/css/dashboard.css')).headers.get('content-type'), /text\/css/);
+    assert.match((await fetch(base + '/js/core.js')).headers.get('content-type'), /javascript/);
+  });
+});
+
+test('never serves private or project files', async () => {
+  await withServer(idleStore, async (base) => {
+    for (const p of ['/calendars.json', '/package.json', '/server/index.js', '/.git/config',
+      '/js/../calendars.json', '/js/%2e%2e/calendars.json', '/../../etc/passwd', '/js/', '/css']) {
+      assert.equal(await rawGet(base, p), 404, p);
+    }
+  });
+});
+
+test('the API returns today as uncached JSON', async () => {
+  await withServer(idleStore, async (base) => {
+    const res = await fetch(base + '/api/today');
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type'), /application\/json/);
+    assert.equal(res.headers.get('cache-control'), 'no-store');
+    assert.equal((await res.json()).date, '2026-11-04');
+  });
+});
+
+test('the API answers 500 without details if something unexpected breaks', async () => {
+  const broken = { today: async () => { throw new Error('secret detail'); } };
+  await withServer(broken, async (base) => {
+    const res = await fetch(base + '/api/today');
+    assert.equal(res.status, 500);
+    assert.ok(!(await res.text()).includes('secret'));
+  });
+});
+
+test('only GET is allowed', async () => {
+  await withServer(idleStore, async (base) => {
+    assert.equal((await fetch(base + '/api/today', { method: 'POST' })).status, 405);
+  });
+});

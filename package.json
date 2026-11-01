@@ -1,0 +1,19 @@
+{
+  "name": "kitchen-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Always-on kitchen dashboard for an old Fire HD 8 tablet",
+  "scripts": {
+    "test": "node --test",
+    "lint:es5": "acorn --ecma5 --silent js/core.js && acorn --ecma5 --silent js/app.js",
+    "check": "npm run lint:es5 && npm test",
+    "serve": "node server/index.js"
+  },
+  "devDependencies": {
+    "acorn": "8.14.0"
+  },
+  "dependencies": {
+    "node-ical": "0.27.3"
+  },
+  "license": "GPL-3.0-only"
+}

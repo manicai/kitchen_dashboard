@@ -26,6 +26,15 @@
   var lastEventsRefreshFailed = false;
   var eventsTimer = null;
   var renderedDate = null;
+  var bins = null; // Latest /api/bins response.
+  var binsFetchedAt = 0;
+  var binsTimer = null;
+  var sonos = null; // Latest /api/sonos response.
+  var sonosTimer = null;
+  var sonosBusy = false;
+  var BINS_REFRESH_MS = 60 * 60 * 1000;
+  var SONOS_ACTIVE_MS = 5 * 1000;
+  var SONOS_IDLE_MS = 15 * 1000;
 
   function el(id) {
     return document.getElementById(id);
@@ -52,9 +61,9 @@
     }
   }
 
-  function getJson(url, onSuccess, onError) {
+  function getJson(url, onSuccess, onError, method) {
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', url);
+    xhr.open(method || 'GET', url);
     xhr.timeout = REQUEST_TIMEOUT_MS;
     xhr.onload = function () {
       var body;
@@ -214,10 +223,13 @@
     }
   }
 
+  function hasCalendars() {
+    return today ? today.configured > 0 : lastEventsRefreshFailed;
+  }
+
   function renderEvents(now) {
     var list = el('events-list');
     var view = today ? core.buildEventsView(today, core.localIso(now)) : null;
-    var noCalendars = (today && today.configured === 0) || (!today && !lastEventsRefreshFailed);
     var warning = '';
     var message = '';
     var events = [];
@@ -232,7 +244,7 @@
       message = 'Checking the calendar…';
     }
 
-    el('dashboard').className = noCalendars ? 'dashboard no-events' : 'dashboard';
+    show('events', hasCalendars(), 'events');
     el('events-message').textContent = message;
     el('events-warning').textContent = warning;
     clear(list);
@@ -242,11 +254,101 @@
     fitEvents(list, events);
   }
 
+  function show(id, visible, className) {
+    el(id).className = className + (visible ? '' : ' is-hidden');
+  }
+
+  function renderBins(now) {
+    var view = core.buildBinsView(bins, now);
+    var icons = el('bins-icons');
+    show('bins', !!view, 'widget bins');
+    if (!view) {
+      return false;
+    }
+    clear(icons);
+    view.bins.forEach(function (colour) {
+      var icon = createDiv('bin bin-' + colour);
+      icon.appendChild(createIcon('bin'));
+      icons.appendChild(icon);
+    });
+    el('bins-title').textContent = view.title;
+    el('bins-note').textContent = view.note;
+    return true;
+  }
+
+  function renderSonos() {
+    var view = core.buildSonosView(sonos);
+    show('sonos', !!view, 'widget sonos');
+    if (!view) {
+      return false;
+    }
+    el('sonos-title').textContent = view.title;
+    el('sonos-artist').textContent = view.artist;
+    el('sonos-toggle').setAttribute('aria-label', view.playing ? 'Pause' : 'Play');
+    el('sonos-toggle-icon').setAttributeNS(XLINK_NS, 'xlink:href', view.playing ? '#icon-pause' : '#icon-play');
+    el('sonos-toggle').disabled = sonosBusy;
+    el('sonos-next').disabled = sonosBusy || !view.canNext;
+    return true;
+  }
+
   function render() {
     var now = new Date();
+    var hasBins = renderBins(now);
+    var hasSonos = renderSonos();
+    el('dashboard').className = hasBins || hasSonos || hasCalendars() ? 'dashboard' : 'dashboard no-side';
     renderClock(now);
     renderWeather(now);
-    renderEvents(now);
+    renderEvents(now); // Last, as fitting the list measures the laid-out column.
+  }
+
+  function refreshBins() {
+    window.clearTimeout(binsTimer);
+    getJson('api/bins', function (body) {
+      bins = body;
+      binsFetchedAt = Date.now();
+      render();
+      binsTimer = window.setTimeout(refreshBins, BINS_REFRESH_MS);
+    }, function () {
+      binsTimer = window.setTimeout(refreshBins, RETRY_MS);
+    });
+  }
+
+  // Polls quickly while the controls are up so the track name keeps up.
+  function scheduleSonos() {
+    window.clearTimeout(sonosTimer);
+    if (sonos && sonos.configured === false) {
+      return; // Not set up on the server; nothing will change until it restarts.
+    }
+    sonosTimer = window.setTimeout(refreshSonos, core.buildSonosView(sonos) ? SONOS_ACTIVE_MS : SONOS_IDLE_MS);
+  }
+
+  function refreshSonos() {
+    getJson('api/sonos', function (body) {
+      sonos = body;
+      render();
+      scheduleSonos();
+    }, function () {
+      sonos = null;
+      render();
+      scheduleSonos();
+    });
+  }
+
+  function sonosCommand(name) {
+    if (sonosBusy) {
+      return;
+    }
+    sonosBusy = true;
+    render();
+    getJson('api/sonos/' + name, function (body) {
+      sonosBusy = false;
+      sonos = body;
+      render();
+      scheduleSonos();
+    }, function () {
+      sonosBusy = false;
+      refreshSonos();
+    }, 'POST');
   }
 
   function refreshEvents() {
@@ -271,6 +373,7 @@
     render();
     if (renderedDate && renderedDate !== date) {
       refreshEvents();
+      refreshBins();
     }
     renderedDate = date;
     window.setTimeout(tick, 60000 - (now.getSeconds() * 1000 + now.getMilliseconds()));
@@ -314,6 +417,12 @@
     }
     if (lastEventsRefreshFailed || Date.now() - todayFetchedAt >= EVENTS_REFRESH_MS) {
       refreshEvents();
+    }
+    if (Date.now() - binsFetchedAt >= BINS_REFRESH_MS) {
+      refreshBins();
+    }
+    if (!sonos || sonos.configured !== false) {
+      refreshSonos();
     }
   }
 
@@ -400,9 +509,17 @@
     document.addEventListener('visibilitychange', catchUp);
     window.addEventListener('online', catchUp);
     window.addEventListener('resize', render);
+    el('sonos-toggle').addEventListener('click', function () {
+      sonosCommand('toggle');
+    });
+    el('sonos-next').addEventListener('click', function () {
+      sonosCommand('next');
+    });
 
     tick();
     refreshEvents();
+    refreshBins();
+    refreshSonos();
     if (location) {
       refreshWeather();
     } else {

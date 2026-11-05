@@ -8,8 +8,8 @@ const { createServer } = require('../server/index.js');
 
 const ROOT = path.join(__dirname, '..');
 
-async function withServer(store, run) {
-  const server = createServer({ store, root: ROOT });
+async function withServer(store, run, extra) {
+  const server = createServer({ store, root: ROOT, ...extra });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   try {
     await run('http://127.0.0.1:' + server.address().port);
@@ -74,4 +74,27 @@ test('only GET is allowed', async () => {
   await withServer(idleStore, async (base) => {
     assert.equal((await fetch(base + '/api/today', { method: 'POST' })).status, 405);
   });
+});
+
+test('widget APIs report unconfigured when not set up', async () => {
+  await withServer(idleStore, async (base) => {
+    assert.equal((await (await fetch(base + '/api/bins')).json()).configured, false);
+    assert.equal((await (await fetch(base + '/api/sonos')).json()).configured, false);
+    assert.equal((await fetch(base + '/api/sonos/toggle', { method: 'POST' })).status, 500);
+  });
+});
+
+test('Sonos controls are POST only and pass the command through', async () => {
+  const seen = [];
+  const sonos = {
+    status: async () => ({ configured: true, available: true, state: 'playing' }),
+    command: async (name) => { seen.push(name); return { configured: true, available: true, state: 'paused' }; }
+  };
+  await withServer(idleStore, async (base) => {
+    assert.equal((await fetch(base + '/api/sonos/next')).status, 404);
+    assert.equal((await fetch(base + '/api/sonos/next', { method: 'POST' })).status, 200);
+    assert.equal((await (await fetch(base + '/api/sonos/toggle', { method: 'POST' })).json()).state, 'paused');
+    assert.equal((await fetch(base + '/api/sonos/volume', { method: 'POST' })).status, 405);
+  }, { sonos });
+  assert.deepEqual(seen, ['next', 'toggle']);
 });

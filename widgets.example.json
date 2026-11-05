@@ -1,0 +1,8 @@
+{
+  "bins": {
+    "url": "https://servicelayer3c.azure-api.net/wastecalendar/calendar/ical/200004201579"
+  },
+  "sonos": {
+    "room": "Kitchen"
+  }
+}

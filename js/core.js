@@ -203,8 +203,83 @@
     };
   }
 
+  var BIN_NAMES = { blue: 'Blue', green: 'Green', black: 'Black' };
+
+  function addDays(date, days) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+  }
+
+  // "Blue", "Blue and green", "Blue, green and black".
+  function binsLabel(bins) {
+    var names = [];
+    var i;
+    for (i = 0; i < bins.length; i++) {
+      names.push(i === 0 ? BIN_NAMES[bins[i]] : BIN_NAMES[bins[i]].toLowerCase());
+    }
+    if (names.length < 2) {
+      return names.join('');
+    }
+    return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+  }
+
+  // Bins go out on Thursday for a Friday collection, so the widget only shows
+  // from Thursday noon until midnight. Null the rest of the week.
+  function buildBinsView(payload, now) {
+    var tomorrow = localIso(addDays(now, 1)).slice(0, 10);
+    var todayIso = localIso(now).slice(0, 10);
+    var i;
+    var next = null;
+    var parts;
+
+    if (!payload || !payload.configured || now.getDay() !== 4 || now.getHours() < 12) {
+      return null;
+    }
+    for (i = 0; i < payload.collections.length; i++) {
+      if (payload.collections[i].date === tomorrow) {
+        return {
+          title: binsLabel(payload.collections[i].bins),
+          bins: payload.collections[i].bins,
+          note: payload.failed ? "Can't update the bin calendar" : ''
+        };
+      }
+      if (!next && payload.collections[i].date > todayIso) {
+        next = payload.collections[i];
+      }
+    }
+    if (payload.failed && !payload.collections.length) {
+      return { title: "Can't get the bin calendar", bins: [], note: '' };
+    }
+    // Bank holidays move collections, so say when the next one is instead.
+    parts = next ? next.date.split('-') : null;
+    return {
+      title: 'No collection tomorrow',
+      bins: [],
+      note: next ? 'Next: ' + binsLabel(next.bins) + ', ' +
+        formatDate(new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))) : ''
+    };
+  }
+
+  // Null unless the room is playing, or was recently and can be resumed.
+  function buildSonosView(status) {
+    if (!status || !status.configured || !status.available) {
+      return null;
+    }
+    if (status.state !== 'playing' && !status.recent) {
+      return null;
+    }
+    return {
+      title: status.title || (status.state === 'playing' ? 'Playing' : 'Paused'),
+      artist: status.artist || '',
+      playing: status.state === 'playing',
+      canNext: Boolean(status.canNext)
+    };
+  }
+
   var api = {
     buildEventsView: buildEventsView,
+    buildBinsView: buildBinsView,
+    buildSonosView: buildSonosView,
+    binsLabel: binsLabel,
     formatTime: formatTime,
     formatDate: formatDate,
     localIso: localIso,

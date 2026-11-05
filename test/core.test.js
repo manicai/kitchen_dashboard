@@ -205,3 +205,45 @@ test('placeLabel distinguishes places and skips repeated or missing parts', () =
   assert.equal(core.placeLabel({ name: 'Paris', admin1: 'Paris', country: 'France' }), 'Paris, France');
   assert.equal(core.placeLabel({ name: 'Nowhere' }), 'Nowhere');
 });
+
+const BINS = {
+  configured: true,
+  failed: false,
+  collections: [{ date: '2026-11-06', bins: ['blue', 'green'] }, { date: '2026-11-13', bins: ['black'] }]
+};
+
+test('binsLabel joins colours in plain English', () => {
+  assert.equal(core.binsLabel(['black']), 'Black');
+  assert.equal(core.binsLabel(['blue', 'green']), 'Blue and green');
+  assert.equal(core.binsLabel(['blue', 'green', 'black']), 'Blue, green and black');
+});
+
+test('buildBinsView shows tomorrow\'s bins only from Thursday noon to midnight', () => {
+  assert.equal(core.buildBinsView(BINS, new Date(2026, 10, 5, 11, 59)), null);
+  assert.equal(core.buildBinsView(BINS, new Date(2026, 10, 6, 0, 0)), null);
+  assert.equal(core.buildBinsView(BINS, new Date(2026, 10, 4, 18, 0)), null);
+  assert.deepEqual(core.buildBinsView(BINS, new Date(2026, 10, 5, 12, 0)),
+    { title: 'Blue and green', bins: ['blue', 'green'], note: '' });
+  assert.equal(core.buildBinsView(BINS, new Date(2026, 10, 12, 23, 59)).title, 'Black');
+});
+
+test('buildBinsView says when the next collection is if it has moved', () => {
+  const moved = { configured: true, failed: false, collections: [{ date: '2026-12-26', bins: ['black'] }] };
+  assert.deepEqual(core.buildBinsView(moved, new Date(2026, 11, 24, 15, 0)),
+    { title: 'No collection tomorrow', bins: [], note: 'Next: Black, Saturday 26 December' });
+});
+
+test('buildBinsView does not claim a clear week when the feed failed', () => {
+  const view = core.buildBinsView({ configured: true, failed: true, collections: [] }, new Date(2026, 10, 5, 15, 0));
+  assert.equal(view.title, "Can't get the bin calendar");
+  assert.equal(core.buildBinsView({ configured: false, collections: [] }, new Date(2026, 10, 5, 15, 0)), null);
+});
+
+test('buildSonosView shows while playing or recently paused', () => {
+  const playing = { configured: true, available: true, state: 'playing', title: 'Song 2', artist: 'Blur', canNext: true, recent: true };
+  assert.deepEqual(core.buildSonosView(playing), { title: 'Song 2', artist: 'Blur', playing: true, canNext: true });
+  assert.equal(core.buildSonosView({ configured: true, available: true, state: 'paused', recent: true }).playing, false);
+  assert.equal(core.buildSonosView({ configured: true, available: true, state: 'stopped', recent: false }), null);
+  assert.equal(core.buildSonosView({ configured: true, available: false }), null);
+  assert.equal(core.buildSonosView(null), null);
+});

@@ -2,7 +2,7 @@
 
 An always-on landscape page for an old Fire HD 8 tablet. The left half shows the time,
 date and weather. The right half shows, when there's something to show, which bins go
-out tonight (Thursday afternoons and evenings), what the kitchen Sonos is playing with
+out tonight (afternoons and evenings before a collection), what the kitchen Sonos is playing with
 play/pause, next-track and volume buttons, and what's on today. With nothing to show there, the
 clock and weather spread across the whole screen. Weather comes from [Open-Meteo](https://open-meteo.com), which needs
 no API key and is free for non-commercial use.
@@ -55,10 +55,10 @@ Copy `widgets.example.json` to `widgets.json` and restart the server:
 Leave out either section to turn that widget off. Like `calendars.json`, `widgets.json`
 is ignored by git and never served.
 
-- **Bins** reads the council's iCal feed (checked hourly) and, from noon to midnight on
-  Thursdays, shows whether Friday is blue, blue and green, or black. Food waste is
-  ignored because it goes every week. If a bank holiday moves the collection, it says
-  so and gives the next date.
+- **Bins** reads the council's iCal feed (checked hourly) and, from noon to midnight
+  on the day before any collection, shows whether it's blue, blue and green, or black.
+  It goes by the feed's dates rather than a fixed weekday, so it follows collections
+  that bank holidays move. Food waste is ignored because it goes every week.
 - **Sonos** finds the speakers on the local network by itself, so the server must be on
   the same network and allowed to send multicast. If discovery fails, add the IP
   address of any Sonos speaker as `"host": "192.168.1.50"`. `room` is the room name in

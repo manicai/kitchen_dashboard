@@ -62,6 +62,14 @@
     <symbol id="icon-next" viewBox="0 0 48 48">
       <path d="M8 10l20 14-20 14zM28 10l0 28M30 10h6v28h-6z" fill="#f2efe9"/>
     </symbol>
+    <symbol id="icon-volume-down" viewBox="0 0 48 48">
+      <path d="M6 18h8l10-8v28l-10-8H6z" fill="#f2efe9"/>
+      <path d="M31 24h12" fill="none" stroke="#f2efe9" stroke-width="4" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="icon-volume-up" viewBox="0 0 48 48">
+      <path d="M6 18h8l10-8v28l-10-8H6z" fill="#f2efe9"/>
+      <path d="M31 24h12M37 18v12" fill="none" stroke="#f2efe9" stroke-width="4" stroke-linecap="round"/>
+    </symbol>
     <symbol id="icon-bin" viewBox="0 0 48 48">
       <path d="M12 12h24l-2.5 30h-19z" fill="currentColor"/>
       <path d="M9 8h30v4H9z" fill="currentColor"/>
@@ -78,7 +86,10 @@
       <div class="column-main">
         <section class="clock" aria-label="Time and date">
           <div id="time" class="time"></div>
-          <div id="date" class="date"></div>
+          <div class="date">
+            <span id="date-day" class="date-day"></span>
+            <span id="date-month" class="date-month"></span>
+          </div>
         </section>
 
         <div class="weather">
@@ -87,6 +98,7 @@
               <div class="current-main">
                 <span id="current-icon" class="current-icon"></span>
                 <span id="current-temp" class="current-temp"></span>
+                <ol id="later" class="later" aria-label="Later today"></ol>
               </div>
               <div id="current-label" class="current-label"></div>
               <dl class="stats">
@@ -97,10 +109,6 @@
               </dl>
             </div>
             <p id="weather-message" class="weather-message" role="status"></p>
-          </section>
-
-          <section class="hours" aria-label="Next few hours">
-            <ol id="hours" class="hours-list"></ol>
           </section>
         </div>
       </div>
@@ -126,6 +134,12 @@
             <button id="sonos-next" class="sonos-button" type="button" aria-label="Next track">
               <svg class="icon" aria-hidden="true"><use xlink:href="#icon-next"/></svg>
             </button>
+            <button id="sonos-volume-down" class="sonos-button sonos-volume" type="button" aria-label="Volume down">
+              <svg class="icon" aria-hidden="true"><use xlink:href="#icon-volume-down"/></svg>
+            </button>
+            <button id="sonos-volume-up" class="sonos-button" type="button" aria-label="Volume up">
+              <svg class="icon" aria-hidden="true"><use xlink:href="#icon-volume-up"/></svg>
+            </button>
           </div>
         </section>
 
@@ -138,8 +152,8 @@
     </div>
 
     <footer class="footer">
+      <!-- The weather status doubles as the way to change location. -->
       <button id="location-button" class="location-button" type="button" aria-label="Change location"></button>
-      <span id="weather-status" class="weather-status"></span>
     </footer>
   </main>
 

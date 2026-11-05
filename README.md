@@ -3,7 +3,7 @@
 An always-on landscape page for an old Fire HD 8 tablet. The left half shows the time,
 date and weather. The right half shows, when there's something to show, which bins go
 out tonight (Thursday afternoons and evenings), what the kitchen Sonos is playing with
-play/pause and next-track buttons, and what's on today. With nothing to show there, the
+play/pause, next-track and volume buttons, and what's on today. With nothing to show there, the
 clock and weather spread across the whole screen. Weather comes from [Open-Meteo](https://open-meteo.com), which needs
 no API key and is free for non-commercial use.
 
@@ -62,13 +62,13 @@ is ignored by git and never served.
 - **Sonos** finds the speakers on the local network by itself, so the server must be on
   the same network and allowed to send multicast. If discovery fails, add the IP
   address of any Sonos speaker as `"host": "192.168.1.50"`. `room` is the room name in
-  the Sonos app. If the kitchen is grouped with other rooms, the buttons control the
-  whole group. The widget shows while the room is playing and for 15 minutes after it
+  the Sonos app. If the kitchen is grouped with other rooms, the buttons, volume included,
+  control the whole group. The widget shows while the room is playing and for 15 minutes after it
   stops, so it can be resumed. Next is greyed out for radio, which has no next track.
 
 ## Set up the tablet
 
-1. Open the page and search for your town. Tap the place name at the bottom left to change it later.
+1. Open the page and search for your town. To change it later, tap "Updated" and the time at the bottom right.
 2. Keep the screen on: Settings > Device Options > tap Serial Number 7 times, then
    Developer Options > Stay Awake. This only applies while it's charging.
 3. For true full screen, use a kiosk browser such as Fully Kiosk Browser instead of Silk.

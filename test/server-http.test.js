@@ -94,7 +94,8 @@ test('Sonos controls are POST only and pass the command through', async () => {
     assert.equal((await fetch(base + '/api/sonos/next')).status, 404);
     assert.equal((await fetch(base + '/api/sonos/next', { method: 'POST' })).status, 200);
     assert.equal((await (await fetch(base + '/api/sonos/toggle', { method: 'POST' })).json()).state, 'paused');
+    assert.equal((await fetch(base + '/api/sonos/volume-up', { method: 'POST' })).status, 200);
     assert.equal((await fetch(base + '/api/sonos/volume', { method: 'POST' })).status, 405);
   }, { sonos });
-  assert.deepEqual(seen, ['next', 'toggle']);
+  assert.deepEqual(seen, ['next', 'toggle', 'volume-up']);
 });

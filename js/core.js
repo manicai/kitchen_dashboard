@@ -296,7 +296,24 @@
     };
   }
 
+  var MUSIC_KINDS = { station: 'Radio', album: 'Album', playlist: 'Playlist', track: 'Track', artist: 'Artist' };
+
+  // The second line of an item in the music picker, such as "Album · Blur".
+  // The kind is left out when the subtitle already says it ("Spotify Playlist").
+  function musicSubtitle(item) {
+    var kind = MUSIC_KINDS[item.kind] || '';
+    var subtitle = item.subtitle || '';
+    if (kind && subtitle.toLowerCase().indexOf(kind.toLowerCase()) !== -1) {
+      kind = '';
+    }
+    if (item.kind === 'station' && /station/i.test(subtitle)) {
+      kind = '';
+    }
+    return kind && subtitle ? kind + ' · ' + subtitle : kind || subtitle;
+  }
+
   var api = {
+    musicSubtitle: musicSubtitle,
     buildEventsView: buildEventsView,
     buildBinsView: buildBinsView,
     buildSonosView: buildSonosView,

@@ -70,6 +70,15 @@
       <path d="M6 18h8l10-8v28l-10-8H6z" fill="#f2efe9"/>
       <path d="M31 24h12M37 18v12" fill="none" stroke="#f2efe9" stroke-width="4" stroke-linecap="round"/>
     </symbol>
+    <symbol id="icon-music" viewBox="0 0 48 48">
+      <ellipse cx="19" cy="36" rx="8" ry="6" transform="rotate(-20 19 36)" fill="currentColor"/>
+      <path d="M23.5 8h4v29h-4z" fill="currentColor"/>
+      <path d="M27.5 8c1 6 11 8 9 20-1.5-5-4.5-8-9-9z" fill="currentColor"/>
+    </symbol>
+    <symbol id="icon-mic" viewBox="0 0 48 48">
+      <rect x="18" y="5" width="12" height="24" rx="6" fill="currentColor"/>
+      <path d="M11 22a13 13 0 0 0 26 0M24 35v7M17 42h14" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+    </symbol>
     <symbol id="icon-bin" viewBox="0 0 48 48">
       <path d="M12 12h24l-2.5 30h-19z" fill="currentColor"/>
       <path d="M9 8h30v4H9z" fill="currentColor"/>
@@ -134,6 +143,9 @@
             <button id="sonos-next" class="sonos-button" type="button" aria-label="Next track">
               <svg class="icon" aria-hidden="true"><use xlink:href="#icon-next"/></svg>
             </button>
+            <button id="sonos-music" class="sonos-button sonos-music" type="button" aria-label="Choose music">
+              <svg class="icon" aria-hidden="true"><use xlink:href="#icon-music"/></svg>
+            </button>
             <button id="sonos-volume-down" class="sonos-button sonos-volume" type="button" aria-label="Volume down">
               <svg class="icon" aria-hidden="true"><use xlink:href="#icon-volume-down"/></svg>
             </button>
@@ -152,6 +164,10 @@
     </div>
 
     <footer class="footer">
+      <!-- Starts music when the Sonos card isn't showing because nothing is playing. -->
+      <button id="footer-music" class="footer-music is-hidden" type="button" aria-label="Choose music">
+        <svg class="icon" aria-hidden="true"><use xlink:href="#icon-music"/></svg>
+      </button>
       <!-- The weather status doubles as the way to change location. -->
       <button id="location-button" class="location-button" type="button" aria-label="Change location"></button>
     </footer>
@@ -170,6 +186,27 @@
       <p id="setup-message" class="setup-message" role="status"></p>
       <ul id="setup-results" class="setup-results"></ul>
       <button id="setup-cancel" class="setup-cancel is-hidden" type="button">Cancel</button>
+    </div>
+  </section>
+
+  <section id="music" class="setup music is-hidden" aria-labelledby="music-title">
+    <div class="setup-inner music-inner">
+      <div class="music-header">
+        <h1 id="music-title" class="setup-title">Music</h1>
+        <button id="music-close" class="setup-cancel music-close" type="button">Close</button>
+      </div>
+      <form id="music-form" class="setup-form" autocomplete="off">
+        <label class="setup-label" for="music-input">Search favourites, playlists and the music library</label>
+        <div class="setup-row">
+          <input id="music-input" class="setup-input" type="text" maxlength="80">
+          <button id="music-mic" class="music-mic is-hidden" type="button" aria-label="Search by voice">
+            <svg class="icon" aria-hidden="true"><use xlink:href="#icon-mic"/></svg>
+          </button>
+          <button class="setup-submit" type="submit">Search</button>
+        </div>
+      </form>
+      <p id="music-message" class="setup-message" role="status"></p>
+      <div id="music-lists"></div>
     </div>
   </section>
 

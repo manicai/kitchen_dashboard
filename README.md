@@ -66,6 +66,25 @@ is ignored by git and never served.
   control the whole group. The widget shows while the room is playing and for 15 minutes after it
   stops, so it can be resumed. Next is greyed out for radio, which has no next track.
 
+### Choosing music
+
+The quaver button (on the Sonos card, or bottom left when nothing is playing) opens a
+music picker listing what was last started from it, your Sonos favourites and your Sonos
+playlists. Tapping one replaces what the room (or its group) is playing.
+
+Search covers favourites and playlists by name, plus albums, artists and tracks in a
+music library shared to Sonos from a computer or NAS. Streaming services such as Spotify
+can't be searched from here, because Sonos only exposes them to its own apps, so add
+anything you want from them to Sonos favourites in the Sonos app.
+
+"Played recently" is only what was started from this picker, kept in `sonos-recent.json`
+next to this file. The Sonos app's own recents aren't available on the local network.
+
+The microphone button appears only where the browser offers voice recognition on this
+page. Expect it to be missing on the Fire tablet: browsers only allow the microphone on
+HTTPS pages, this page is plain HTTP, and Fire tablets lack the Google speech service
+that Chromium-based browsers use for it.
+
 ## Set up the tablet
 
 1. Open the page and search for your town. To change it later, tap "Updated" and the time at the bottom right.

@@ -18,8 +18,6 @@ The dashboard depends on this server, so it has to run on something that stays o
 such as a Raspberry Pi or NAS, set to the same time zone as the tablet. A static host
 won't work, because calendar providers don't let browsers read their feeds directly.
 
-The weather location is stored only on the tablet.
-
 ## Add calendars
 
 Create `calendars.json` next to this file, using `calendars.example.json` as a
@@ -41,20 +39,23 @@ like passwords. Event titles are visible to anyone on your network who opens the
 Feeds are fetched at most every 15 minutes. Finished events drop off the list through
 the day, and an amber note names any calendar that can't be updated.
 
-## Add the bin and Sonos widgets
+## Set the weather location and widgets
 
 Copy `widgets.example.json` to `widgets.json` and restart the server:
 
 ```json
 {
+  "weather": { "name": "Cambridge", "latitude": 52.2053, "longitude": 0.1218 },
   "bins": { "url": "https://servicelayer3c.azure-api.net/wastecalendar/calendar/ical/200004201579" },
   "sonos": { "room": "Kitchen" }
 }
 ```
 
-Leave out either section to turn that widget off. Like `calendars.json`, `widgets.json`
+Leave out `bins` or `sonos` to turn that widget off. Like `calendars.json`, `widgets.json`
 is ignored by git and never served.
 
+- **Weather** is for the `latitude` and `longitude` given (`name` is only used in the
+  server's startup log). Without a `weather` section, or without `widgets.json`, it's Cambridge, UK.
 - **Bins** reads the council's iCal feed (checked hourly) and, from noon to midnight
   on the day before any collection, shows whether it's blue, blue and green, or black.
   It goes by the feed's dates rather than a fixed weekday, so it follows collections
@@ -87,12 +88,12 @@ that Chromium-based browsers use for it.
 
 ## Set up the tablet
 
-1. Open the page and search for your town. To change it later, tap "Updated" and the time at the bottom right.
+1. Open the page.
 2. Keep the screen on: Settings > Device Options > tap Serial Number 7 times, then
    Developer Options > Stay Awake. This only applies while it's charging.
 3. For true full screen, use a kiosk browser such as Fully Kiosk Browser instead of Silk.
 
-### If it says "Can't search right now" or "Can't get the weather"
+### If it says "Can't get the weather"
 
 Check the Wi-Fi first. If that's fine, check the Fire OS version under Settings >
 Device Options > System Updates. Open-Meteo's HTTPS certificate relies on a root

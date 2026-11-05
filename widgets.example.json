@@ -1,4 +1,9 @@
 {
+  "weather": {
+    "name": "Cambridge",
+    "latitude": 52.2053,
+    "longitude": 0.1218
+  },
   "bins": {
     "url": "https://servicelayer3c.azure-api.net/wastecalendar/calendar/ical/200004201579"
   },

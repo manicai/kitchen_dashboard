@@ -168,26 +168,9 @@
       <button id="footer-music" class="footer-music is-hidden" type="button" aria-label="Choose music">
         <svg class="icon" aria-hidden="true"><use xlink:href="#icon-music"/></svg>
       </button>
-      <!-- The weather status doubles as the way to change location. -->
-      <button id="location-button" class="location-button" type="button" aria-label="Change location"></button>
+      <span id="weather-status" class="weather-status"></span>
     </footer>
   </main>
-
-  <section id="setup" class="setup is-hidden" aria-labelledby="setup-title">
-    <div class="setup-inner">
-      <h1 id="setup-title" class="setup-title">Where's this kitchen?</h1>
-      <form id="setup-form" class="setup-form" autocomplete="off">
-        <label class="setup-label" for="setup-input">Town or city</label>
-        <div class="setup-row">
-          <input id="setup-input" class="setup-input" type="text" maxlength="80">
-          <button class="setup-submit" type="submit">Search</button>
-        </div>
-      </form>
-      <p id="setup-message" class="setup-message" role="status"></p>
-      <ul id="setup-results" class="setup-results"></ul>
-      <button id="setup-cancel" class="setup-cancel is-hidden" type="button">Cancel</button>
-    </div>
-  </section>
 
   <section id="music" class="setup music is-hidden" aria-labelledby="music-title">
     <div class="setup-inner music-inner">

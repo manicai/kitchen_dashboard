@@ -147,23 +147,6 @@
       '&timezone=auto&forecast_days=2';
   }
 
-  function geocodeUrl(query) {
-    return 'https://geocoding-api.open-meteo.com/v1/search?count=5&language=en&format=json' +
-      '&name=' + encodeURIComponent(query);
-  }
-
-  // "Bristol, England, United Kingdom", which tells apart places with the same name.
-  function placeLabel(place) {
-    var parts = [place.name];
-    if (place.admin1 && place.admin1 !== place.name) {
-      parts.push(place.admin1);
-    }
-    if (place.country) {
-      parts.push(place.country);
-    }
-    return parts.join(', ');
-  }
-
   function eventIsFinished(event, nowIso) {
     if (event.allDay) {
       return false;
@@ -317,9 +300,7 @@
     laterHours: laterHours,
     buildWeatherView: buildWeatherView,
     isForecastUsable: isForecastUsable,
-    forecastUrl: forecastUrl,
-    geocodeUrl: geocodeUrl,
-    placeLabel: placeLabel
+    forecastUrl: forecastUrl
   };
 
   if (typeof module !== 'undefined' && module.exports) {

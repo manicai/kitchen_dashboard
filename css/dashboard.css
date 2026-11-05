@@ -567,21 +567,16 @@ input {
   color: #a3a8ad;
 }
 
-/* The weather status, and taller than it looks: it's the tap target for changing location. */
-.location-button {
-  min-height: 2.75rem;
-  padding: 0 0 0 1rem;
-  border: 0;
-  background: none;
-  color: #a3a8ad;
+.weather-status {
+  padding-left: 1rem;
 }
 
-.location-button--warning {
+.weather-status--warning {
   color: #f0b04f;
 }
 
-/* Location setup. Sized in px because an on-screen keyboard shrinks the viewport
-   on old browsers, which would take rem-based text with it. */
+/* Music picker: a full-screen panel. Sized in px because an on-screen keyboard
+   shrinks the viewport on old browsers, which would take rem-based text with it. */
 
 .setup {
   position: fixed;
@@ -648,23 +643,6 @@ input {
   display: none;
 }
 
-.setup-results {
-  margin: 16px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.setup-result {
-  display: block;
-  width: 100%;
-  min-height: 48px;
-  padding: 8px 0;
-  border: 0;
-  border-bottom: 1px solid #2b3035;
-  background: none;
-  text-align: left;
-}
-
 .setup-cancel {
   min-height: 48px;
   margin-top: 16px;
@@ -673,8 +651,6 @@ input {
   border-radius: 4px;
   background: none;
 }
-
-/* Music picker. Reuses the location setup's full-screen panel and form. */
 
 .music-inner {
   max-width: 900px;

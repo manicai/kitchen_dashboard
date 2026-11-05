@@ -117,3 +117,13 @@ test('the music picker browses, searches and plays by ID only', async () => {
   }, { sonos });
   assert.deepEqual(seen, ['search blur park', 'play FV:2/1']);
 });
+
+test('the location defaults to Cambridge and can be set', async () => {
+  await withServer(idleStore, async (base) => {
+    assert.equal((await (await fetch(base + '/api/location')).json()).name, 'Cambridge');
+  });
+  const location = { name: 'Ely', latitude: 52.4, longitude: 0.26 };
+  await withServer(idleStore, async (base) => {
+    assert.deepEqual(await (await fetch(base + '/api/location')).json(), location);
+  }, { location });
+});

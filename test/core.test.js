@@ -128,10 +128,6 @@ test('forecastUrl includes the coordinates and the fields the view reads', () =>
   });
 });
 
-test('geocodeUrl encodes the search text', () => {
-  assert.match(core.geocodeUrl('St Albans&x=1'), /name=St%20Albans%26x%3D1$/);
-});
-
 function day(events, configured) {
   return { date: '2026-11-04', configured: configured || 1, events: events, failed: [] };
 }
@@ -204,15 +200,6 @@ test('buildEventsView does not claim an empty day when a calendar failed', () =>
 
 test('buildEventsView returns null for a different day', () => {
   assert.equal(core.buildEventsView(day([]), '2026-11-05T00:01'), null);
-});
-
-test('placeLabel distinguishes places and skips repeated or missing parts', () => {
-  assert.equal(
-    core.placeLabel({ name: 'Bristol', admin1: 'England', country: 'United Kingdom' }),
-    'Bristol, England, United Kingdom'
-  );
-  assert.equal(core.placeLabel({ name: 'Paris', admin1: 'Paris', country: 'France' }), 'Paris, France');
-  assert.equal(core.placeLabel({ name: 'Nowhere' }), 'Nowhere');
 });
 
 const BINS = {

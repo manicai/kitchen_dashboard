@@ -1,0 +1,37 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { loadWidgets, DEFAULT_LOCATION } = require('../server/index.js');
+
+function withConfig(config, run) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'widgets-'));
+  const file = path.join(dir, 'widgets.json');
+  try {
+    fs.writeFileSync(file, JSON.stringify(config));
+    return run(file);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('weather location defaults to Cambridge with no file or no weather section', () => {
+  assert.equal(DEFAULT_LOCATION.name, 'Cambridge');
+  assert.deepEqual(loadWidgets(path.join(os.tmpdir(), 'no-such-dir', 'widgets.json')).location, DEFAULT_LOCATION);
+  withConfig({}, (file) => assert.deepEqual(loadWidgets(file).location, DEFAULT_LOCATION));
+});
+
+test('weather location is read from widgets.json', () => {
+  withConfig({ weather: { name: 'Ely', latitude: '52.4', longitude: 0.26 } }, (file) => {
+    assert.deepEqual(loadWidgets(file).location, { name: 'Ely', latitude: 52.4, longitude: 0.26 });
+  });
+});
+
+test('a weather section without usable coordinates is rejected', () => {
+  for (const weather of [{ name: 'Ely' }, { latitude: 'north', longitude: 0 }, { latitude: 95, longitude: 0 }]) {
+    withConfig({ weather }, (file) => assert.throws(() => loadWidgets(file), /latitude and longitude/));
+  }
+});

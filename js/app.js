@@ -11,17 +11,16 @@
   var REQUEST_TIMEOUT_MS = 20 * 1000;
   // Hours ahead shown beside the current temperature.
   var LATER_OFFSETS = [4, 8, 12];
-  var LOCATION_KEY = 'kitchen.location';
   var FORECAST_KEY = 'kitchen.forecast';
   var SVG_NS = 'http://www.w3.org/2000/svg';
   var XLINK_NS = 'http://www.w3.org/1999/xlink';
 
-  var location = null;
-  var forecast = null; // { fetchedAt: ms since epoch, data: raw Open-Meteo response }
+  var location = null; // From /api/location, set in widgets.json on the server.
+  var forecast = null; // { fetchedAt: ms since epoch, latitude, longitude, data: raw Open-Meteo response }
   var lastRefreshFailed = false;
   var forecastRequestId = 0;
-  var searchRequestId = 0;
   var refreshTimer = null;
+  var locationTimer = null;
   var today = null; // Latest /api/today response.
   var todayFetchedAt = 0;
   var lastEventsRefreshFailed = false;
@@ -165,16 +164,14 @@
     }
   }
 
-  // Also the button for changing location, so it says something whenever the
-  // weather can't be shown and a wrong place might be why.
   function renderWeatherStatus(view) {
-    var status = el('location-button');
+    var status = el('weather-status');
     var fetchedAt = view ? core.formatTime(new Date(forecast.fetchedAt)) : '';
-    status.className = 'location-button';
+    status.className = 'weather-status';
     if (!view) {
-      status.textContent = lastRefreshFailed ? 'Change location' : '';
+      status.textContent = '';
     } else if (lastRefreshFailed) {
-      status.className += ' location-button--warning';
+      status.className += ' weather-status--warning';
       status.textContent = "Can't update. Weather from " + fetchedAt;
     } else {
       status.textContent = 'Updated ' + fetchedAt;
@@ -616,7 +613,7 @@
       if (id !== forecastRequestId) {
         return; // Superseded, for example by a change of location.
       }
-      forecast = { fetchedAt: Date.now(), data: data };
+      forecast = { fetchedAt: Date.now(), latitude: location.latitude, longitude: location.longitude, data: data };
       lastRefreshFailed = false;
       save(FORECAST_KEY, forecast);
       render();
@@ -631,13 +628,37 @@
     });
   }
 
+  function sameLocation(a, b) {
+    return a.latitude === b.latitude && a.longitude === b.longitude;
+  }
+
+  function loadLocation() {
+    window.clearTimeout(locationTimer);
+    getJson('api/location', function (body) {
+      // A forecast cached for somewhere else would be wrong, not just old.
+      if (forecast && !sameLocation(forecast, body)) {
+        forecast = null;
+        save(FORECAST_KEY, null);
+      }
+      location = body;
+      render();
+      refreshWeather();
+    }, function () {
+      lastRefreshFailed = true;
+      render();
+      locationTimer = window.setTimeout(loadLocation, RETRY_MS);
+    });
+  }
+
   // Timers can stall while the tablet sleeps, so catch up when it wakes.
   function catchUp() {
     if (document.hidden) {
       return;
     }
     render();
-    if (!forecast || lastRefreshFailed || Date.now() - forecast.fetchedAt >= REFRESH_MS) {
+    if (!location) {
+      loadLocation();
+    } else if (!forecast || lastRefreshFailed || Date.now() - forecast.fetchedAt >= REFRESH_MS) {
       refreshWeather();
     }
     if (lastEventsRefreshFailed || Date.now() - todayFetchedAt >= EVENTS_REFRESH_MS) {
@@ -651,86 +672,9 @@
     }
   }
 
-  function setSetupMessage(text) {
-    el('setup-message').textContent = text;
-  }
-
-  function closeSetup() {
-    searchRequestId++;
-    el('setup').className = 'setup is-hidden';
-    el('location-button').focus();
-  }
-
-  function openSetup() {
-    el('setup-input').value = '';
-    setSetupMessage('');
-    clear(el('setup-results'));
-    el('setup-cancel').className = location ? 'setup-cancel' : 'setup-cancel is-hidden';
-    el('setup').className = 'setup';
-    el('setup-input').focus();
-  }
-
-  function choosePlace(place) {
-    location = { name: place.name, latitude: place.latitude, longitude: place.longitude };
-    forecast = null;
-    lastRefreshFailed = false;
-    save(LOCATION_KEY, location);
-    save(FORECAST_KEY, null);
-    closeSetup();
-    render();
-    refreshWeather();
-  }
-
-  function renderSearchResults(places) {
-    var list = el('setup-results');
-    clear(list);
-    places.forEach(function (place) {
-      var item = document.createElement('li');
-      var button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'setup-result';
-      button.textContent = core.placeLabel(place);
-      button.addEventListener('click', function () {
-        choosePlace(place);
-      });
-      item.appendChild(button);
-      list.appendChild(item);
-    });
-  }
-
-  function search(event) {
-    var query = el('setup-input').value.trim();
-    var id = ++searchRequestId;
-    event.preventDefault();
-    clear(el('setup-results'));
-
-    if (query.length < 2) {
-      setSetupMessage('Type at least two letters.');
-      return;
-    }
-
-    setSetupMessage('Searching…');
-    getJson(core.geocodeUrl(query), function (body) {
-      var places = body.results || [];
-      if (id !== searchRequestId) {
-        return;
-      }
-      setSetupMessage(places.length ? '' : 'No places found. Check the spelling?');
-      renderSearchResults(places);
-    }, function () {
-      if (id === searchRequestId) {
-        setSetupMessage("Can't search right now. Check the Wi-Fi and try again.");
-      }
-    });
-  }
-
   function start() {
-    location = load(LOCATION_KEY);
     forecast = load(FORECAST_KEY);
 
-    el('location-button').addEventListener('click', openSetup);
-    el('setup-cancel').addEventListener('click', closeSetup);
-    el('setup-form').addEventListener('submit', search);
     document.addEventListener('visibilitychange', catchUp);
     window.addEventListener('online', catchUp);
     window.addEventListener('resize', render);
@@ -761,11 +705,7 @@
     refreshEvents();
     refreshBins();
     refreshSonos();
-    if (location) {
-      refreshWeather();
-    } else {
-      openSetup();
-    }
+    loadLocation();
   }
 
   start();

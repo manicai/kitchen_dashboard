@@ -12,6 +12,7 @@ const { createBinStore } = require('./bins.js');
 const { createSonos } = require('./sonos.js');
 
 const FETCH_TIMEOUT_MS = 20 * 1000;
+const DEFAULT_LOCATION = { name: 'Cambridge', latitude: 52.2053, longitude: 0.1218 };
 const MAX_FEED_BYTES = 20 * 1024 * 1024;
 
 // An explicit list, so calendars.json, widgets.json and the rest of the project are never served.
@@ -49,7 +50,7 @@ function sendJson(res, promise, what) {
   );
 }
 
-function createServer({ store, bins = DISABLED_BINS, sonos = DISABLED_SONOS, root }) {
+function createServer({ store, bins = DISABLED_BINS, sonos = DISABLED_SONOS, location = DEFAULT_LOCATION, root }) {
   return http.createServer((req, res) => {
     const url = new URL(req.url, 'http://dashboard');
     const route = url.pathname;
@@ -63,6 +64,8 @@ function createServer({ store, bins = DISABLED_BINS, sonos = DISABLED_SONOS, roo
       sendJson(res, sonos.play(url.searchParams.get('id') || ''), 'play on Sonos');
     } else if (req.method !== 'GET') {
       send(res, 405, 'text/plain', 'Method not allowed');
+    } else if (route === '/api/location') {
+      send(res, 200, 'application/json', JSON.stringify(location));
     } else if (route === '/api/today') {
       sendJson(res, store.today(new Date()), 'build today');
     } else if (route === '/api/bins') {
@@ -114,15 +117,29 @@ function loadCalendars(file) {
   return parseConfig(text);
 }
 
-// Optional settings for the right-hand widgets. See widgets.example.json.
+function parseLocation(weather) {
+  if (!weather) {
+    return DEFAULT_LOCATION;
+  }
+  const latitude = Number(weather.latitude);
+  const longitude = Number(weather.longitude);
+  if (weather.latitude === undefined || weather.longitude === undefined ||
+      !(Math.abs(latitude) <= 90) || !(Math.abs(longitude) <= 180)) {
+    throw new Error('widgets.json: weather needs a numeric latitude and longitude');
+  }
+  return { name: weather.name ? String(weather.name) : '', latitude, longitude };
+}
+
+// Optional settings for the weather and the right-hand widgets. See widgets.example.json.
 function loadWidgets(file) {
   let config;
   try {
     config = JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch (err) {
     if (err.code === 'ENOENT') {
-      console.log('No widgets.json found, so no bin or Sonos widgets will show. See README.md.');
-      return {};
+      console.log('No widgets.json found, so weather is for ' + DEFAULT_LOCATION.name +
+        ' and no bin or Sonos widgets will show. See README.md.');
+      return { location: DEFAULT_LOCATION };
     }
     throw new Error('widgets.json is not valid: ' + err.message);
   }
@@ -132,6 +149,7 @@ function loadWidgets(file) {
     throw new Error('widgets.json: bins.url must be an http, https or webcal url');
   }
   return {
+    location: parseLocation(config.weather),
     binsUrl: bins,
     sonos: sonos && { room: String(sonos.room), host: sonos.host ? String(sonos.host) : '' }
   };
@@ -168,8 +186,10 @@ function main() {
     loadRecent: () => readJsonIfPresent(recentFile),
     saveRecent: (items) => fs.writeFileSync(recentFile, JSON.stringify(items))
   }) : undefined;
-  createServer({ store, bins, sonos, root }).listen(port, () => {
-    console.log('Kitchen dashboard on port ' + port + ' with ' + calendars.length + ' calendar(s)' +
+  const location = widgets.location;
+  createServer({ store, bins, sonos, location, root }).listen(port, () => {
+    console.log('Kitchen dashboard on port ' + port + ' for ' + (location.name || 'the configured location') +
+      ' with ' + calendars.length + ' calendar(s)' +
       (bins ? ', bins' : '') + (sonos ? ', Sonos room "' + widgets.sonos.room + '"' : ''));
   });
 }
@@ -178,4 +198,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { createServer, loadWidgets };
+module.exports = { createServer, loadWidgets, DEFAULT_LOCATION };

@@ -79,25 +79,46 @@
     return { label: match[0], icon: icon };
   }
 
-  function nextHours(hourly, nowIso, count) {
+  // How likely rain is, as a word the icons can draw: '' (unlikely), 'possible'
+  // or 'likely'. Icons that already show rain or snow need no extra hint.
+  function rainHint(probability, icon) {
+    if (typeof probability !== 'number' || /^(drizzle|rain|snow|thunder)$/.test(icon)) {
+      return '';
+    }
+    if (probability >= 60) {
+      return 'likely';
+    }
+    return probability >= 30 ? 'possible' : '';
+  }
+
+  // The forecast `offsets` hours on from the start of the current hour, so at
+  // 21:09 offsets [4, 8, 12] give 01:00, 05:00 and 09:00. Hours past the end of
+  // the forecast are left out.
+  function laterHours(hourly, nowIso, offsets) {
+    var start = hourly.time.indexOf(nowIso.slice(0, 14) + '00');
     var hours = [];
-    var i;
-    for (i = 0; i < hourly.time.length && hours.length < count; i++) {
-      if (hourly.time[i] > nowIso) {
+    if (start === -1) {
+      return hours;
+    }
+    offsets.forEach(function (offset) {
+      var i = start + offset;
+      var weather;
+      if (i < hourly.time.length) {
+        weather = describeWeather(hourly.weather_code[i], hourly.is_day[i]);
         hours.push({
           label: hourly.time[i].slice(11, 16),
           temp: formatTemp(hourly.temperature_2m[i]),
-          rain: formatPercent(hourly.precipitation_probability[i]),
-          weather: describeWeather(hourly.weather_code[i], hourly.is_day[i])
+          weather: weather,
+          rain: rainHint(hourly.precipitation_probability[i], weather.icon)
         });
       }
-    }
+    });
     return hours;
   }
 
   // Turns a raw Open-Meteo response into display strings for the time `nowIso`.
   // Taking the time as an argument lets a cached forecast roll forward while offline.
-  function buildWeatherView(raw, nowIso, hourCount) {
+  function buildWeatherView(raw, nowIso, offsets) {
     var today = raw.daily.time.indexOf(nowIso.slice(0, 10));
     var weather = describeWeather(raw.current.weather_code, raw.current.is_day);
     return {
@@ -108,7 +129,7 @@
       high: formatTemp(raw.daily.temperature_2m_max[today]),
       low: formatTemp(raw.daily.temperature_2m_min[today]),
       rainChance: formatPercent(raw.daily.precipitation_probability_max[today]),
-      hours: nextHours(raw.hourly, nowIso, hourCount)
+      hours: laterHours(raw.hourly, nowIso, offsets)
     };
   }
 
@@ -286,7 +307,8 @@
     formatTemp: formatTemp,
     formatPercent: formatPercent,
     describeWeather: describeWeather,
-    nextHours: nextHours,
+    rainHint: rainHint,
+    laterHours: laterHours,
     buildWeatherView: buildWeatherView,
     isForecastUsable: isForecastUsable,
     forecastUrl: forecastUrl,

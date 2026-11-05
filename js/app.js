@@ -9,7 +9,8 @@
   var RETRY_MS = 2 * 60 * 1000;
   var EVENTS_REFRESH_MS = 5 * 60 * 1000;
   var REQUEST_TIMEOUT_MS = 20 * 1000;
-  var HOUR_COUNT = 6;
+  // Hours ahead shown beside the current temperature.
+  var LATER_OFFSETS = [4, 8, 12];
   var LOCATION_KEY = 'kitchen.location';
   var FORECAST_KEY = 'kitchen.forecast';
   var SVG_NS = 'http://www.w3.org/2000/svg';
@@ -112,30 +113,35 @@
 
   function renderClock(now) {
     el('time').textContent = core.formatTime(now);
-    el('date').textContent = core.formatDate(now);
+    var date = core.formatDate(now);
+    var space = date.indexOf(' ');
+    el('date-day').textContent = date.slice(0, space);
+    el('date-month').textContent = date.slice(space + 1);
   }
 
-  function renderHours(hours) {
-    var list = el('hours');
+  function renderLater(hours) {
+    var list = el('later');
     clear(list);
     hours.forEach(function (hour) {
       var item = document.createElement('li');
-      var icon = createDiv('hour-icon');
-      var rain = createDiv('hour-rain');
-      var drop = createDiv('hour-drop');
-      var rainText = document.createElement('span');
+      var icon = createDiv('later-icon');
+      var hint;
+      var drops = hour.rain === 'likely' ? 2 : hour.rain === 'possible' ? 1 : 0;
 
-      item.className = 'hour';
+      item.className = 'later-hour';
       icon.appendChild(createIcon(hour.weather.icon));
-      drop.appendChild(createIcon('drop'));
-      rainText.textContent = hour.rain;
-      rain.appendChild(drop);
-      rain.appendChild(rainText);
+      // Drops tucked under the icon say rain may come without a percentage.
+      if (drops) {
+        hint = createDiv('later-rain later-rain--' + hour.rain);
+        while (drops--) {
+          hint.appendChild(createIcon('drop'));
+        }
+        icon.appendChild(hint);
+      }
 
-      item.appendChild(createDiv('hour-label', hour.label));
+      item.appendChild(createDiv('later-label', hour.label));
       item.appendChild(icon);
-      item.appendChild(createDiv('hour-temp', hour.temp));
-      item.appendChild(rain);
+      item.appendChild(createDiv('later-temp', hour.temp));
       list.appendChild(item);
     });
   }
@@ -147,20 +153,22 @@
       return null;
     }
     try {
-      return core.buildWeatherView(forecast.data, core.localIso(now), HOUR_COUNT);
+      return core.buildWeatherView(forecast.data, core.localIso(now), LATER_OFFSETS);
     } catch (e) {
       return null;
     }
   }
 
+  // Also the button for changing location, so it says something whenever the
+  // weather can't be shown and a wrong place might be why.
   function renderWeatherStatus(view) {
-    var status = el('weather-status');
+    var status = el('location-button');
     var fetchedAt = view ? core.formatTime(new Date(forecast.fetchedAt)) : '';
-    status.className = 'weather-status';
+    status.className = 'location-button';
     if (!view) {
-      status.textContent = '';
+      status.textContent = lastRefreshFailed ? 'Change location' : '';
     } else if (lastRefreshFailed) {
-      status.className += ' weather-status--warning';
+      status.className += ' location-button--warning';
       status.textContent = "Can't update. Weather from " + fetchedAt;
     } else {
       status.textContent = 'Updated ' + fetchedAt;
@@ -172,13 +180,12 @@
     var icon = el('current-icon');
 
     el('current-weather').className = view ? '' : 'is-hidden';
-    el('location-button').textContent = location ? location.name : '';
     renderWeatherStatus(view);
 
     if (!view) {
       el('weather-message').textContent = lastRefreshFailed ?
         "Can't get the weather. Still trying." : 'Getting the weather…';
-      renderHours([]);
+      renderLater([]);
       return;
     }
 
@@ -191,7 +198,7 @@
     el('stat-high').textContent = view.high;
     el('stat-low').textContent = view.low;
     el('stat-rain').textContent = view.rainChance;
-    renderHours(view.hours);
+    renderLater(view.hours);
   }
 
   function createEventItem(event) {
@@ -288,6 +295,8 @@
     el('sonos-toggle-icon').setAttributeNS(XLINK_NS, 'xlink:href', view.playing ? '#icon-pause' : '#icon-play');
     el('sonos-toggle').disabled = sonosBusy;
     el('sonos-next').disabled = sonosBusy || !view.canNext;
+    el('sonos-volume-down').disabled = sonosBusy;
+    el('sonos-volume-up').disabled = sonosBusy;
     return true;
   }
 
@@ -514,6 +523,12 @@
     });
     el('sonos-next').addEventListener('click', function () {
       sonosCommand('next');
+    });
+    el('sonos-volume-down').addEventListener('click', function () {
+      sonosCommand('volume-down');
+    });
+    el('sonos-volume-up').addEventListener('click', function () {
+      sonosCommand('volume-up');
     });
 
     tick();

@@ -2,7 +2,7 @@
 
 // Talks to Sonos speakers on the local network over their UPnP control API
 // (port 1400, no account or key needed). Only does what the dashboard shows:
-// what's playing in one room, play/pause and next track.
+// what's playing in one room, play/pause, next track and volume.
 
 const dgram = require('node:dgram');
 const http = require('node:http');
@@ -14,8 +14,12 @@ const COORDINATOR_CACHE_MS = 60 * 1000;
 const STATUS_CACHE_MS = 2 * 1000;
 // After playback stops, controls stay up this long so it can be resumed.
 const RECENT_MS = 15 * 60 * 1000;
+// How far one press of volume up or down moves it, out of 100.
+const VOLUME_STEP = 3;
 
 const AV = { path: '/MediaRenderer/AVTransport/Control', urn: 'urn:schemas-upnp-org:service:AVTransport:1' };
+// Group volume, so a grouped room turns the whole group up, as the Sonos app does.
+const GROUP_VOLUME = { path: '/MediaRenderer/GroupRenderingControl/Control', urn: 'urn:schemas-upnp-org:service:GroupRenderingControl:1' };
 const TOPOLOGY = { path: '/ZoneGroupTopology/Control', urn: 'urn:schemas-upnp-org:service:ZoneGroupTopology:1' };
 
 function unescapeXml(text) {
@@ -284,7 +288,7 @@ function createSonos({ room, host, call = soap, find = discover, clock = Date.no
     return pending;
   }
 
-  // `name` is "toggle" or "next". Resolves to the new status.
+  // `name` is "toggle", "next", "volume-up" or "volume-down". Resolves to the new status.
   async function command(name) {
     const current = await status();
     if (!current.available) {
@@ -293,7 +297,10 @@ function createSonos({ room, host, call = soap, find = discover, clock = Date.no
     const target = await resolveCoordinator();
     const args = { InstanceID: 0 };
     try {
-      if (name === 'next') {
+      if (name === 'volume-up' || name === 'volume-down') {
+        await call(target, GROUP_VOLUME, 'SetRelativeGroupVolume',
+          { InstanceID: 0, Adjustment: name === 'volume-up' ? VOLUME_STEP : -VOLUME_STEP });
+      } else if (name === 'next') {
         await call(target, AV, 'Next', args);
       } else if (current.state !== 'playing') {
         await call(target, AV, 'Play', { InstanceID: 0, Speed: 1 });

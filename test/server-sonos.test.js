@@ -50,8 +50,8 @@ test('parseStreamContent understands the TYPE=SNG form', () => {
 
 function fakeSpeaker(state) {
   const calls = [];
-  const call = async (host, service, action) => {
-    calls.push(host + ' ' + action);
+  const call = async (host, service, action, args) => {
+    calls.push(host + ' ' + action + (action === 'SetRelativeGroupVolume' ? ' ' + args.Adjustment : ''));
     const responses = {
       GetZoneGroupState: '<ZoneGroupState>' + esc(TOPOLOGY) + '</ZoneGroupState>',
       GetTransportInfo: '<CurrentTransportState>' + state.transport + '</CurrentTransportState>',
@@ -88,6 +88,15 @@ test('toggle pauses then plays, and stays recent after pausing', async () => {
   assert.equal(paused.state, 'paused');
   assert.equal(paused.recent, true);
   assert.equal((await sonos.command('toggle')).state, 'playing');
+});
+
+test('volume up and down move the group volume on the coordinator', async () => {
+  const speaker = fakeSpeaker({ transport: 'PLAYING' });
+  const sonos = createSonos({ room: 'Kitchen', host: '10.0.0.6', call: speaker.call });
+  assert.equal((await sonos.command('volume-up')).state, 'playing');
+  await sonos.command('volume-down');
+  assert.ok(speaker.calls.includes('10.0.0.5 SetRelativeGroupVolume 3'));
+  assert.ok(speaker.calls.includes('10.0.0.5 SetRelativeGroupVolume -3'));
 });
 
 test('controls go away a while after playback stops', async () => {

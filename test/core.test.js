@@ -60,26 +60,35 @@ test('describeWeather survives a code it does not know', () => {
   assert.deepEqual(core.describeWeather(1234, 1), { label: 'Unknown', icon: 'cloud' });
 });
 
-test('nextHours starts after the current time and stops at the count', () => {
-  const hours = core.nextHours(sampleForecast().hourly, '2026-11-01T14:49', 2);
-  assert.deepEqual(hours.map((h) => h.label), ['15:00', '16:00']);
+test('laterHours counts from the start of the current hour', () => {
+  const hours = core.laterHours(sampleForecast().hourly, '2026-11-01T14:49', [1, 3]);
+  assert.deepEqual(hours.map((h) => h.label), ['15:00', '17:00']);
   assert.equal(hours[0].temp, '11°');
-  assert.equal(hours[0].rain, '40%');
-  assert.equal(hours[1].rain, '–');
+  assert.equal(hours[0].weather.icon, 'cloud');
+  assert.equal(hours[1].weather.icon, 'clear-night');
 });
 
-test('nextHours excludes an hour that is exactly now', () => {
-  const hours = core.nextHours(sampleForecast().hourly, '2026-11-01T15:00', 1);
-  assert.equal(hours[0].label, '16:00');
+test('laterHours leaves out hours past the end of the forecast', () => {
+  assert.equal(core.laterHours(sampleForecast().hourly, '2026-11-01T16:30', [1, 4, 8]).length, 1);
+  assert.equal(core.laterHours(sampleForecast().hourly, '2026-11-02T00:00', [1]).length, 0);
 });
 
-test('nextHours returns what it has when the forecast runs out', () => {
-  assert.equal(core.nextHours(sampleForecast().hourly, '2026-11-01T16:30', 6).length, 1);
-  assert.equal(core.nextHours(sampleForecast().hourly, '2026-11-02T00:00', 6).length, 0);
+test('laterHours turns the chance of rain into a hint for the icon', () => {
+  const hours = core.laterHours(sampleForecast().hourly, '2026-11-01T14:00', [0, 1, 2, 3]);
+  assert.deepEqual(hours.map((h) => h.rain), ['', 'possible', '', '']);
+});
+
+test('rainHint is graded, and left off icons that already show rain', () => {
+  assert.equal(core.rainHint(29, 'cloud'), '');
+  assert.equal(core.rainHint(30, 'cloud'), 'possible');
+  assert.equal(core.rainHint(60, 'partly-day'), 'likely');
+  assert.equal(core.rainHint(90, 'rain'), '');
+  assert.equal(core.rainHint(90, 'snow'), '');
+  assert.equal(core.rainHint(null, 'cloud'), '');
 });
 
 test('buildWeatherView produces display strings for today', () => {
-  const view = core.buildWeatherView(sampleForecast(), '2026-11-01T14:49', 2);
+  const view = core.buildWeatherView(sampleForecast(), '2026-11-01T14:49', [1, 2]);
   assert.equal(view.temp, '12°');
   assert.equal(view.feelsLike, '8°');
   assert.equal(view.label, 'Light rain');
@@ -91,14 +100,14 @@ test('buildWeatherView produces display strings for today', () => {
 });
 
 test('buildWeatherView uses the new day after midnight on a cached forecast', () => {
-  const view = core.buildWeatherView(sampleForecast(), '2026-11-02T00:10', 2);
+  const view = core.buildWeatherView(sampleForecast(), '2026-11-02T00:10', [1]);
   assert.equal(view.high, '15°');
   assert.equal(view.low, '7°');
   assert.equal(view.rainChance, '10%');
 });
 
 test('buildWeatherView shows dashes when today is not in the forecast', () => {
-  const view = core.buildWeatherView(sampleForecast(), '2026-11-03T00:10', 2);
+  const view = core.buildWeatherView(sampleForecast(), '2026-11-03T00:10', [1]);
   assert.equal(view.high, '–');
   assert.equal(view.rainChance, '–');
 });

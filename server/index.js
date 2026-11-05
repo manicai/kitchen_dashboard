@@ -27,6 +27,8 @@ function send(res, status, type, body) {
   res.end(body);
 }
 
+const SONOS_COMMANDS = ['toggle', 'next', 'volume-up', 'volume-down'];
+
 const DISABLED_BINS = { upcoming: async () => ({ configured: false, collections: [], failed: false }) };
 const DISABLED_SONOS = {
   status: async () => ({ configured: false, available: false }),
@@ -46,10 +48,11 @@ function sendJson(res, promise, what) {
 function createServer({ store, bins = DISABLED_BINS, sonos = DISABLED_SONOS, root }) {
   return http.createServer((req, res) => {
     const route = req.url.split('?')[0];
+    const sonosCommand = route.startsWith('/api/sonos/') ? route.slice('/api/sonos/'.length) : '';
 
-    if (req.method === 'POST' && (route === '/api/sonos/toggle' || route === '/api/sonos/next')) {
+    if (req.method === 'POST' && SONOS_COMMANDS.includes(sonosCommand)) {
       req.resume();
-      sendJson(res, sonos.command(route.slice('/api/sonos/'.length)), 'control Sonos');
+      sendJson(res, sonos.command(sonosCommand), 'control Sonos');
     } else if (req.method !== 'GET') {
       send(res, 405, 'text/plain', 'Method not allowed');
     } else if (route === '/api/today') {

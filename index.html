@@ -10,7 +10,7 @@
 </head>
 <body>
   <!-- Weather icons, inlined so they need no extra requests or emoji font support. -->
-  <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true">
     <symbol id="icon-clear-day" viewBox="0 0 48 48">
       <g fill="none" stroke="#f5b942" stroke-width="3" stroke-linecap="round">
         <circle cx="24" cy="24" r="9"/>
@@ -53,47 +53,87 @@
       <path d="M14 30h21a8 8 0 0 0 1.4-15.9A11.5 11.5 0 0 0 13 12.5 9 9 0 0 0 14 30z" fill="none" stroke="#d5d9dd" stroke-width="3" stroke-linejoin="round"/>
       <path d="M26 26l-6 9h7l-4 9" fill="none" stroke="#f5b942" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
     </symbol>
+    <symbol id="icon-play" viewBox="0 0 48 48">
+      <path d="M16 10l24 14-24 14z" fill="#f2efe9"/>
+    </symbol>
+    <symbol id="icon-pause" viewBox="0 0 48 48">
+      <path d="M13 10h8v28h-8zM27 10h8v28h-8z" fill="#f2efe9"/>
+    </symbol>
+    <symbol id="icon-next" viewBox="0 0 48 48">
+      <path d="M8 10l20 14-20 14zM28 10l0 28M30 10h6v28h-6z" fill="#f2efe9"/>
+    </symbol>
+    <symbol id="icon-bin" viewBox="0 0 48 48">
+      <path d="M12 12h24l-2.5 30h-19z" fill="currentColor"/>
+      <path d="M9 8h30v4H9z" fill="currentColor"/>
+      <circle cx="17" cy="43" r="2.5" fill="currentColor"/>
+      <circle cx="31" cy="43" r="2.5" fill="currentColor"/>
+    </symbol>
     <symbol id="icon-drop" viewBox="0 0 48 48">
       <path d="M24 5c7 10 14 16.500 14 25a14 14 0 0 1-28 0c0-8.500 7-15 14-25z" fill="#6db3e8"/>
     </symbol>
   </svg>
 
-  <main id="dashboard" class="dashboard no-events">
+  <main id="dashboard" class="dashboard no-side">
     <div class="columns">
-      <div class="column-today">
+      <div class="column-main">
         <section class="clock" aria-label="Time and date">
           <div id="time" class="time"></div>
           <div id="date" class="date"></div>
         </section>
 
-        <section class="events" aria-label="Today's events">
+        <div class="weather">
+          <section class="current" aria-label="Current weather">
+            <div id="current-weather" class="is-hidden">
+              <div class="current-main">
+                <span id="current-icon" class="current-icon"></span>
+                <span id="current-temp" class="current-temp"></span>
+              </div>
+              <div id="current-label" class="current-label"></div>
+              <dl class="stats">
+                <div class="stat"><dt>Feels like</dt><dd id="stat-feels"></dd></div>
+                <div class="stat"><dt>High</dt><dd id="stat-high"></dd></div>
+                <div class="stat"><dt>Low</dt><dd id="stat-low"></dd></div>
+                <div class="stat"><dt>Rain</dt><dd id="stat-rain"></dd></div>
+              </dl>
+            </div>
+            <p id="weather-message" class="weather-message" role="status"></p>
+          </section>
+
+          <section class="hours" aria-label="Next few hours">
+            <ol id="hours" class="hours-list"></ol>
+          </section>
+        </div>
+      </div>
+
+      <div class="column-side">
+        <section id="bins" class="widget bins is-hidden" aria-label="Bin collection">
+          <div class="widget-label">Bins out tonight</div>
+          <div class="bins-row">
+            <div id="bins-icons" class="bins-icons"></div>
+            <div id="bins-title" class="bins-title"></div>
+          </div>
+          <div id="bins-note" class="widget-note"></div>
+        </section>
+
+        <section id="sonos" class="widget sonos is-hidden" aria-label="Kitchen music">
+          <div class="widget-label">Kitchen</div>
+          <div id="sonos-title" class="sonos-title"></div>
+          <div id="sonos-artist" class="sonos-artist"></div>
+          <div class="sonos-controls">
+            <button id="sonos-toggle" class="sonos-button" type="button" aria-label="Play">
+              <svg class="icon" aria-hidden="true"><use id="sonos-toggle-icon" xlink:href="#icon-play"/></svg>
+            </button>
+            <button id="sonos-next" class="sonos-button" type="button" aria-label="Next track">
+              <svg class="icon" aria-hidden="true"><use xlink:href="#icon-next"/></svg>
+            </button>
+          </div>
+        </section>
+
+        <section id="events" class="events is-hidden" aria-label="Today's events">
           <ul id="events-list" class="events-list"></ul>
           <p id="events-message" class="events-message" role="status"></p>
           <p id="events-warning" class="events-warning"></p>
         </section>
-      </div>
-
-      <div class="column-weather">
-      <section class="current" aria-label="Current weather">
-        <div id="current-weather" class="is-hidden">
-          <div class="current-main">
-            <span id="current-icon" class="current-icon"></span>
-            <span id="current-temp" class="current-temp"></span>
-          </div>
-          <div id="current-label" class="current-label"></div>
-          <dl class="stats">
-            <div class="stat"><dt>Feels like</dt><dd id="stat-feels"></dd></div>
-            <div class="stat"><dt>High</dt><dd id="stat-high"></dd></div>
-            <div class="stat"><dt>Low</dt><dd id="stat-low"></dd></div>
-            <div class="stat"><dt>Rain</dt><dd id="stat-rain"></dd></div>
-          </dl>
-        </div>
-        <p id="weather-message" class="weather-message" role="status"></p>
-      </section>
-
-      <section class="hours" aria-label="Next few hours">
-        <ol id="hours" class="hours-list"></ol>
-      </section>
       </div>
     </div>
 

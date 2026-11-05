@@ -1,7 +1,10 @@
 # Kitchen Dashboard
 
-An always-on page for an old Fire HD 8 tablet showing the time, date, weather and
-what's on today. Weather comes from [Open-Meteo](https://open-meteo.com), which needs
+An always-on landscape page for an old Fire HD 8 tablet. The left half shows the time,
+date and weather. The right half shows, when there's something to show, which bins go
+out tonight (Thursday afternoons and evenings), what the kitchen Sonos is playing with
+play/pause and next-track buttons, and what's on today. With nothing to show there, the
+clock and weather spread across the whole screen. Weather comes from [Open-Meteo](https://open-meteo.com), which needs
 no API key and is free for non-commercial use.
 
 ## Run it
@@ -37,6 +40,31 @@ like passwords. Event titles are visible to anyone on your network who opens the
 
 Feeds are fetched at most every 15 minutes. Finished events drop off the list through
 the day, and an amber note names any calendar that can't be updated.
+
+## Add the bin and Sonos widgets
+
+Copy `widgets.example.json` to `widgets.json` and restart the server:
+
+```json
+{
+  "bins": { "url": "https://servicelayer3c.azure-api.net/wastecalendar/calendar/ical/200004201579" },
+  "sonos": { "room": "Kitchen" }
+}
+```
+
+Leave out either section to turn that widget off. Like `calendars.json`, `widgets.json`
+is ignored by git and never served.
+
+- **Bins** reads the council's iCal feed (checked hourly) and, from noon to midnight on
+  Thursdays, shows whether Friday is blue, blue and green, or black. Food waste is
+  ignored because it goes every week. If a bank holiday moves the collection, it says
+  so and gives the next date.
+- **Sonos** finds the speakers on the local network by itself, so the server must be on
+  the same network and allowed to send multicast. If discovery fails, add the IP
+  address of any Sonos speaker as `"host": "192.168.1.50"`. `room` is the room name in
+  the Sonos app. If the kitchen is grouped with other rooms, the buttons control the
+  whole group. The widget shows while the room is playing and for 15 minutes after it
+  stops, so it can be resumed. Next is greyed out for radio, which has no next track.
 
 ## Set up the tablet
 

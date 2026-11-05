@@ -68,8 +68,15 @@ input {
   min-height: 0;
 }
 
-.column-today,
-.column-weather {
+/*
+ * Landscape: clock and weather on the left half, widgets and today's events on
+ * the right. When the right has nothing to show (`no-side`), the left takes the
+ * whole width and lays the clock and weather side by side instead.
+ */
+
+.column-main,
+.column-side,
+.weather {
   display: -webkit-flex;
   display: flex;
   -webkit-flex-direction: column;
@@ -78,23 +85,67 @@ input {
   min-width: 0;
 }
 
-.column-today {
-  -webkit-flex: 0 0 56%;
-  flex: 0 0 56%;
+.column-main {
+  -webkit-flex: 0 0 50%;
+  flex: 0 0 50%;
   padding-right: 2rem;
 }
 
-.column-weather {
+.column-side {
+  -webkit-flex: 0 0 50%;
+  flex: 0 0 50%;
+  padding-left: 2rem;
+  border-left: 1px solid #2b3035;
+}
+
+.weather {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #2b3035;
+}
+
+.no-side .column-side {
+  display: none;
+}
+
+.no-side .column-main {
+  -webkit-flex: 1 1 100%;
+  flex: 1 1 100%;
+  -webkit-flex-direction: row;
+  flex-direction: row;
+  padding-right: 0;
+}
+
+.no-side .clock {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  -webkit-justify-content: center;
+  justify-content: center;
+  -webkit-flex: 0 0 56%;
+  flex: 0 0 56%;
+  box-sizing: border-box;
+  padding-right: 2rem;
+}
+
+.no-side .weather {
   -webkit-flex: 0 0 44%;
   flex: 0 0 44%;
+  margin-top: 0;
+  padding-top: 0;
   padding-left: 2rem;
+  border-top: 0;
   border-left: 1px solid #2b3035;
 }
 
 /* Clock */
 
 .time {
-  font-size: 7.5rem;
+  font-size: 6.5rem;
   font-weight: 400;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -104,22 +155,137 @@ input {
 
 .date {
   margin-top: 0.5rem;
-  font-size: 2rem;
+  font-size: 1.75rem;
 }
 
-/* With no calendars set up, the clock gets the column to itself. */
-
-.no-events .column-today {
-  -webkit-justify-content: center;
-  justify-content: center;
-}
-
-.no-events .time {
+.no-side .time {
   font-size: 10rem;
 }
 
-.no-events .events {
+.no-side .date {
+  font-size: 2rem;
+}
+
+/* Widgets */
+
+.widget {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  margin-bottom: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 0.75rem;
+  background: #1d2125;
+}
+
+.widget-label {
+  font-size: 1rem;
+  color: #a3a8ad;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.widget-note {
+  margin-top: 0.5rem;
+  font-size: 1.125rem;
+  color: #a3a8ad;
+}
+
+.widget-note:empty {
   display: none;
+}
+
+.bins-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.bins-icons {
+  display: -webkit-flex;
+  display: flex;
+}
+
+.bins-icons:empty {
+  display: none;
+}
+
+.bin {
+  width: 4rem;
+  height: 4rem;
+  margin-right: 0.75rem;
+}
+
+.bin-blue {
+  color: #3d86d8;
+}
+
+.bin-green {
+  color: #4caf5c;
+}
+
+/* Black on a dark screen needs an outline to be seen. */
+.bin-black {
+  color: #050607;
+  stroke: #a3a8ad;
+  stroke-width: 1.5;
+}
+
+.bins-title {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: 0.25rem;
+  font-size: 2rem;
+  line-height: 1.15;
+}
+
+.sonos-title,
+.sonos-artist {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sonos-title {
+  margin-top: 0.375rem;
+  font-size: 1.75rem;
+}
+
+.sonos-artist {
+  margin-top: 0.125rem;
+  font-size: 1.25rem;
+  color: #a3a8ad;
+}
+
+.sonos-artist:empty {
+  display: none;
+}
+
+.sonos-controls {
+  display: -webkit-flex;
+  display: flex;
+  margin-top: 0.75rem;
+}
+
+.sonos-button {
+  width: 5rem;
+  height: 4rem;
+  margin-right: 1rem;
+  padding: 1rem;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 2rem;
+  background: #2b3035;
+}
+
+.sonos-button:active {
+  background: #3a4046;
+}
+
+.sonos-button[disabled] {
+  opacity: 0.35;
 }
 
 /* Today's events */
@@ -132,9 +298,6 @@ input {
   -webkit-flex: 1 1 auto;
   flex: 1 1 auto;
   min-height: 0;
-  margin-top: 1rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid #2b3035;
 }
 
 .events-list {
@@ -156,8 +319,8 @@ input {
 }
 
 .event-time {
-  -webkit-flex: 0 0 7.5rem;
-  flex: 0 0 7.5rem;
+  -webkit-flex: 0 0 6rem;
+  flex: 0 0 6rem;
   font-size: 1.25rem;
   color: #a3a8ad;
   font-variant-numeric: tabular-nums;
@@ -224,13 +387,13 @@ input {
 
 .current-icon {
   display: block;
-  width: 6rem;
-  height: 6rem;
+  width: 5rem;
+  height: 5rem;
   margin-right: 1rem;
 }
 
 .current-temp {
-  font-size: 6rem;
+  font-size: 5rem;
   font-weight: 400;
   line-height: 1;
 }
@@ -457,31 +620,37 @@ input {
   background: none;
 }
 
-/* Portrait: stack today above the weather. */
+/* Portrait isn't the target, but stay usable: stack everything. */
 @media (orientation: portrait) {
-  .columns {
+  .columns,
+  .no-side .column-main {
     -webkit-flex-direction: column;
     flex-direction: column;
   }
 
-  .column-today {
-    -webkit-flex: 1 1 auto;
-    flex: 1 1 auto;
-    min-height: 0;
+  .column-main,
+  .no-side .column-main {
+    -webkit-flex: 0 0 auto;
+    flex: 0 0 auto;
     padding-right: 0;
   }
 
-  .column-weather {
+  .no-side .clock,
+  .no-side .weather {
     -webkit-flex: 0 0 auto;
     flex: 0 0 auto;
+    padding: 0;
+    border: 0;
+  }
+
+  .column-side {
+    -webkit-flex: 1 1 auto;
+    flex: 1 1 auto;
+    min-height: 0;
     margin-top: 1rem;
     padding-top: 1rem;
     padding-left: 0;
     border-top: 1px solid #2b3035;
     border-left: 0;
-  }
-
-  .hours {
-    margin-top: 1.5rem;
   }
 }

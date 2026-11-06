@@ -227,7 +227,7 @@ test('binsLabel joins colours in plain English', () => {
   assert.equal(core.binsLabel(['blue', 'green', 'black']), 'Blue, green and black');
 });
 
-test('buildBinsView shows tomorrow\'s bins only from Thursday noon to midnight', () => {
+test('buildBinsView shows tomorrow\'s bins from noon to midnight the day before', () => {
   assert.equal(core.buildBinsView(BINS, new Date(2026, 10, 5, 11, 59)), null);
   assert.equal(core.buildBinsView(BINS, new Date(2026, 10, 6, 0, 0)), null);
   assert.equal(core.buildBinsView(BINS, new Date(2026, 10, 4, 18, 0)), null);
@@ -236,10 +236,16 @@ test('buildBinsView shows tomorrow\'s bins only from Thursday noon to midnight',
   assert.equal(core.buildBinsView(BINS, new Date(2026, 10, 12, 23, 59)).title, 'Black');
 });
 
-test('buildBinsView says when the next collection is if it has moved', () => {
+test('buildBinsView follows a collection moved by a bank holiday', () => {
   const moved = { configured: true, failed: false, collections: [{ date: '2026-12-26', bins: ['black'] }] };
-  assert.deepEqual(core.buildBinsView(moved, new Date(2026, 11, 24, 15, 0)),
-    { title: 'No collection tomorrow', bins: [], note: 'Next: Black, Saturday 26 December' });
+  assert.equal(core.buildBinsView(moved, new Date(2026, 11, 24, 15, 0)), null);
+  assert.deepEqual(core.buildBinsView(moved, new Date(2026, 11, 25, 15, 0)),
+    { title: 'Black', bins: ['black'], note: '' });
+});
+
+test('buildBinsView flags a stale feed alongside tomorrow\'s bins', () => {
+  const stale = { configured: true, failed: true, collections: BINS.collections };
+  assert.equal(core.buildBinsView(stale, new Date(2026, 10, 5, 15, 0)).note, "Can't update the bin calendar");
 });
 
 test('buildBinsView does not claim a clear week when the feed failed', () => {

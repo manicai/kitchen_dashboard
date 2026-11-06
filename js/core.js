@@ -243,16 +243,14 @@
     return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
   }
 
-  // Bins go out on Thursday for a Friday collection, so the widget only shows
-  // from Thursday noon until midnight. Null the rest of the week.
+  // Bins go out the evening before a collection. Collections shift around bank
+  // holidays, so rather than assume a weekday, show from noon until midnight on
+  // any day with a collection tomorrow. Null the rest of the time.
   function buildBinsView(payload, now) {
     var tomorrow = localIso(addDays(now, 1)).slice(0, 10);
-    var todayIso = localIso(now).slice(0, 10);
     var i;
-    var next = null;
-    var parts;
 
-    if (!payload || !payload.configured || now.getDay() !== 4 || now.getHours() < 12) {
+    if (!payload || !payload.configured || now.getHours() < 12) {
       return null;
     }
     for (i = 0; i < payload.collections.length; i++) {
@@ -263,21 +261,12 @@
           note: payload.failed ? "Can't update the bin calendar" : ''
         };
       }
-      if (!next && payload.collections[i].date > todayIso) {
-        next = payload.collections[i];
-      }
     }
+    // With no feed at all there's no telling whether tomorrow is a collection.
     if (payload.failed && !payload.collections.length) {
       return { title: "Can't get the bin calendar", bins: [], note: '' };
     }
-    // Bank holidays move collections, so say when the next one is instead.
-    parts = next ? next.date.split('-') : null;
-    return {
-      title: 'No collection tomorrow',
-      bins: [],
-      note: next ? 'Next: ' + binsLabel(next.bins) + ', ' +
-        formatDate(new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))) : ''
-    };
+    return null;
   }
 
   // Null unless the room is playing, or was recently and can be resumed.

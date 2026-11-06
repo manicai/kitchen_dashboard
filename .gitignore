@@ -2,3 +2,7 @@ node_modules/
 calendars.json
 widgets.json
 sonos-recent.json
+envdir/
+.env
+robbie_timetable.json
+

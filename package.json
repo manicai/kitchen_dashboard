@@ -7,12 +7,14 @@
     "test": "node --test",
     "lint:es5": "acorn --ecma5 --silent js/core.js && acorn --ecma5 --silent js/app.js",
     "check": "npm run lint:es5 && npm test",
-    "serve": "node server/index.js"
+    "serve": "node server/index.js",
+    "hive-login": "node scripts/hive-login.js"
   },
   "devDependencies": {
     "acorn": "8.14.0"
   },
   "dependencies": {
+    "amazon-cognito-identity-js": "6.3.22",
     "node-ical": "0.27.3"
   },
   "license": "GPL-3.0-only"

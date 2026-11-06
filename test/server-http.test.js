@@ -130,15 +130,41 @@ test('the location defaults to Cambridge and can be set', async () => {
 
 test('popup buttons show only for what is set up', async () => {
   await withServer(idleStore, async (base) => {
-    assert.deepEqual(await (await fetch(base + '/api/buttons')).json(), { timetable: '', solar: false });
+    assert.deepEqual(await (await fetch(base + '/api/buttons')).json(), { timetable: '', solar: false, hive: false });
+    assert.equal((await (await fetch(base + '/api/hive')).json()).configured, false);
+    assert.equal((await fetch(base + '/api/hive/boost?id=x&minutes=30', { method: 'POST' })).status, 500);
     assert.equal((await (await fetch(base + '/api/timetable')).json()).configured, false);
     assert.equal((await (await fetch(base + '/api/solar')).json()).configured, false);
   });
   const timetable = { name: 'Robbie', day: async () => ({ configured: true, name: 'Robbie', date: '2026-11-06', lessons: [] }) };
   const solar = { status: async () => ({ configured: true, available: false, failed: false }) };
   await withServer(idleStore, async (base) => {
-    assert.deepEqual(await (await fetch(base + '/api/buttons')).json(), { timetable: 'Robbie', solar: true });
+    assert.deepEqual(await (await fetch(base + '/api/buttons')).json(), { timetable: 'Robbie', solar: true, hive: false });
     assert.equal((await (await fetch(base + '/api/timetable')).json()).date, '2026-11-06');
     assert.equal((await (await fetch(base + '/api/solar')).json()).configured, true);
   }, { timetable, solar });
+});
+
+test('Hive readings, boosts and stopping a boost go to the Hive widget', async () => {
+  const calls = [];
+  const hive = {
+    status: async () => ({ configured: true, available: false }),
+    boost: async (id, minutes) => {
+      calls.push(['boost', id, minutes]);
+      return { configured: true, boosted: id };
+    },
+    stopBoost: async (id) => {
+      calls.push(['stop', id]);
+      return { configured: true, stopped: id };
+    }
+  };
+  await withServer(idleStore, async (base) => {
+    assert.equal((await (await fetch(base + '/api/buttons')).json()).hive, true);
+    assert.equal((await (await fetch(base + '/api/hive')).json()).configured, true);
+    assert.equal((await (await fetch(base + '/api/hive/boost?id=h1&minutes=60', { method: 'POST' })).json()).boosted, 'h1');
+    assert.equal((await (await fetch(base + '/api/hive/stop?id=w1', { method: 'POST' })).json()).stopped, 'w1');
+    // Changes need a POST, so a stray link or prefetch can't boost the heating.
+    assert.equal((await fetch(base + '/api/hive/boost?id=h1&minutes=60')).status, 404);
+  }, { hive });
+  assert.deepEqual(calls, [['boost', 'h1', '60'], ['stop', 'w1']]);
 });

@@ -49,3 +49,17 @@ test('timetable and solar are read from widgets.json and checked', () => {
   withConfig({ timetable: { name: 'Robbie' } }, (file) => assert.throws(() => loadWidgets(file), /timetable needs/));
   withConfig({ solar: { apiKey: 'k' } }, (file) => assert.throws(() => loadWidgets(file), /solar needs/));
 });
+
+test('hive is read from widgets.json and checked', () => {
+  withConfig({ hive: { username: 'me@example.com', password: 'pw' } }, (file) => {
+    assert.deepEqual(loadWidgets(file).hive, { username: 'me@example.com', password: 'pw', boostTemperature: 21 });
+  });
+  withConfig({ hive: { username: 'me@example.com', password: 'pw', boostTemperature: '22.5' } }, (file) => {
+    assert.equal(loadWidgets(file).hive.boostTemperature, 22.5);
+  });
+  withConfig({}, (file) => assert.equal(loadWidgets(file).hive, undefined));
+  withConfig({ hive: { username: 'me@example.com' } }, (file) => assert.throws(() => loadWidgets(file), /hive needs/));
+  withConfig({ hive: { username: 'u', password: 'p', boostTemperature: 'hot' } }, (file) => {
+    assert.throws(() => loadWidgets(file), /boostTemperature/);
+  });
+});

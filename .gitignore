@@ -6,3 +6,4 @@ envdir/
 .env
 robbie_timetable.json
 
+hive-auth.json

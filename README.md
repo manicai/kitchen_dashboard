@@ -49,11 +49,12 @@ Copy `widgets.example.json` to `widgets.json` and restart the server:
   "bins": { "url": "https://servicelayer3c.azure-api.net/wastecalendar/calendar/ical/200004201579" },
   "sonos": { "room": "Kitchen" },
   "timetable": { "name": "Robbie", "file": "robbie_timetable.json" },
-  "solar": { "apiKey": "...", "sn": "..." }
+  "solar": { "apiKey": "...", "sn": "..." },
+  "hive": { "username": "you@example.com", "password": "...", "boostTemperature": 21 }
 }
 ```
 
-Leave out `bins`, `sonos`, `timetable` or `solar` to turn that widget off. Like `calendars.json`, `widgets.json`
+Leave out `bins`, `sonos`, `timetable`, `solar` or `hive` to turn that widget off. Like `calendars.json`, `widgets.json`
 is ignored by git and never served.
 
 - **Weather** is for the `latitude` and `longitude` given (`name` is only used in the
@@ -71,7 +72,7 @@ is ignored by git and never served.
 
 ### Popups along the bottom
 
-`timetable` and `solar` each add a button at the bottom left. Tapping one covers the
+`timetable`, `solar` and `hive` each add a button at the bottom left. Tapping one covers the
 dashboard with a full-screen popup, which goes back to the dashboard after two minutes
 or when Close is tapped.
 
@@ -90,6 +91,23 @@ or when Close is tapped.
   about 1,440 API calls a day. Each update takes three, and the server reuses figures for
   four minutes, so a popup left open uses about 45 calls an hour. Their cloud only
   updates every five minutes anyway.
+- **Heating** shows each Hive heating zone's temperature, what it's set to and whether
+  it's calling for heat, and whether the hot water is on. Each has boost buttons
+  (heating for 30 minutes, 1 or 2 hours to `boostTemperature`, 21° if left out; hot water
+  for 30 minutes or an hour), and Stop boost while one is running, which goes back to
+  the schedule or setting from before. `username` and `password` are the ones for the
+  Hive app. Hive texts a code for each new sign-in, so sign in once by hand on the
+  computer the server runs on:
+
+  ```sh
+  npm run hive-login
+  ```
+
+  It asks for the code and has Hive remember that computer, so the server can sign
+  itself back in from then on without one. The sign-in is kept in `hive-auth.json`,
+  which is ignored by git, never served, and works like a password. If the popup says
+  Hive needs signing in again, run it again. The server reads Hive at most every 30
+  seconds, and only while the popup is open.
 
 ### Choosing music
 

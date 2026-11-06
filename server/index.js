@@ -12,6 +12,8 @@ const { createBinStore } = require('./bins.js');
 const { createSonos } = require('./sonos.js');
 const { createTimetable } = require('./timetable.js');
 const { createSolar } = require('./solar.js');
+const { createHive } = require('./hive.js');
+const { createHiveAuth, createFileStorage } = require('./hive-auth.js');
 
 const FETCH_TIMEOUT_MS = 20 * 1000;
 const DEFAULT_LOCATION = { name: 'Cambridge', latitude: 52.2053, longitude: 0.1218 };
@@ -43,6 +45,12 @@ const DISABLED_SONOS = {
 };
 const DISABLED_TIMETABLE = { name: '', day: async () => ({ configured: false }) };
 const DISABLED_SOLAR = { status: async () => ({ configured: false, available: false }) };
+const HIVE_NOT_CONFIGURED = async () => { throw new Error('Hive is not configured'); };
+const DISABLED_HIVE = {
+  status: async () => ({ configured: false, available: false }),
+  boost: HIVE_NOT_CONFIGURED,
+  stopBoost: HIVE_NOT_CONFIGURED
+};
 
 function sendJson(res, promise, what) {
   promise.then(
@@ -56,7 +64,7 @@ function sendJson(res, promise, what) {
 
 function createServer({
   store, bins = DISABLED_BINS, sonos = DISABLED_SONOS, timetable = DISABLED_TIMETABLE, solar = DISABLED_SOLAR,
-  location = DEFAULT_LOCATION, root
+  hive = DISABLED_HIVE, location = DEFAULT_LOCATION, root
 }) {
   return http.createServer((req, res) => {
     const url = new URL(req.url, 'http://dashboard');
@@ -69,6 +77,12 @@ function createServer({
     } else if (req.method === 'POST' && route === '/api/sonos/play') {
       req.resume();
       sendJson(res, sonos.play(url.searchParams.get('id') || ''), 'play on Sonos');
+    } else if (req.method === 'POST' && route === '/api/hive/boost') {
+      req.resume();
+      sendJson(res, hive.boost(url.searchParams.get('id') || '', url.searchParams.get('minutes')), 'boost Hive');
+    } else if (req.method === 'POST' && route === '/api/hive/stop') {
+      req.resume();
+      sendJson(res, hive.stopBoost(url.searchParams.get('id') || ''), 'stop the Hive boost');
     } else if (req.method !== 'GET') {
       send(res, 405, 'text/plain', 'Method not allowed');
     } else if (route === '/api/location') {
@@ -77,12 +91,15 @@ function createServer({
       // Which popup buttons to show along the bottom.
       send(res, 200, 'application/json', JSON.stringify({
         timetable: timetable === DISABLED_TIMETABLE ? '' : timetable.name,
-        solar: solar !== DISABLED_SOLAR
+        solar: solar !== DISABLED_SOLAR,
+        hive: hive !== DISABLED_HIVE
       }));
     } else if (route === '/api/timetable') {
       sendJson(res, timetable.day(new Date()), 'read the timetable');
     } else if (route === '/api/solar') {
       sendJson(res, solar.status(), 'read solar');
+    } else if (route === '/api/hive') {
+      sendJson(res, hive.status(), 'read Hive');
     } else if (route === '/api/today') {
       sendJson(res, store.today(new Date()), 'build today');
     } else if (route === '/api/bins') {
@@ -173,12 +190,21 @@ function loadWidgets(file) {
   if (solar && !(solar.apiKey && solar.sn)) {
     throw new Error('widgets.json: solar needs the FoxESS apiKey and the inverter sn');
   }
+  const hive = config.hive;
+  if (hive && !(hive.username && hive.password)) {
+    throw new Error('widgets.json: hive needs the username and password for the Hive app');
+  }
+  const boostTemperature = hive && hive.boostTemperature !== undefined ? Number(hive.boostTemperature) : 21;
+  if (!(boostTemperature >= 5 && boostTemperature <= 32)) {
+    throw new Error('widgets.json: hive.boostTemperature must be a number of degrees from 5 to 32');
+  }
   return {
     location: parseLocation(config.weather),
     binsUrl: bins,
     sonos: sonos && { room: String(sonos.room), host: sonos.host ? String(sonos.host) : '' },
     timetable: timetable && { name: String(timetable.name), file: String(timetable.file) },
-    solar: solar && { apiKey: String(solar.apiKey), sn: String(solar.sn) }
+    solar: solar && { apiKey: String(solar.apiKey), sn: String(solar.sn) },
+    hive: hive && { username: String(hive.username), password: String(hive.password), boostTemperature }
   };
 }
 
@@ -220,12 +246,19 @@ function main() {
     load: () => JSON.parse(fs.readFileSync(timetableFile, 'utf8'))
   }) : undefined;
   const solar = widgets.solar ? createSolar(widgets.solar) : undefined;
+  const hive = widgets.hive ? createHive({
+    getToken: createHiveAuth({
+      password: widgets.hive.password,
+      storage: createFileStorage(process.env.HIVE_AUTH_FILE || path.join(root, 'hive-auth.json'))
+    }).getToken,
+    boostTemperature: widgets.hive.boostTemperature
+  }) : undefined;
   const location = widgets.location;
-  createServer({ store, bins, sonos, timetable, solar, location, root }).listen(port, () => {
+  createServer({ store, bins, sonos, timetable, solar, hive, location, root }).listen(port, () => {
     console.log('Kitchen dashboard on port ' + port + ' for ' + (location.name || 'the configured location') +
       ' with ' + calendars.length + ' calendar(s)' +
       (bins ? ', bins' : '') + (sonos ? ', Sonos room "' + widgets.sonos.room + '"' : '') +
-      (timetable ? ', ' + timetable.name + "'s timetable" : '') + (solar ? ', FoxESS solar' : ''));
+      (timetable ? ', ' + timetable.name + "'s timetable" : '') + (solar ? ', FoxESS solar' : '') + (hive ? ', Hive' : ''));
   });
 }
 

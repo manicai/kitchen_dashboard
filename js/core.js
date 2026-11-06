@@ -427,6 +427,113 @@
     };
   }
 
+  function formatMinutes(minutes) {
+    var hours = Math.floor(minutes / 60);
+    var mins = Math.round(minutes % 60);
+    if (!hours) {
+      return mins + ' min';
+    }
+    return hours + ' hr' + (mins ? ' ' + mins + ' min' : '');
+  }
+
+  function formatTenths(value) {
+    return typeof value === 'number' ? value.toFixed(1) + '°' : '–';
+  }
+
+  var HEATING_BOOSTS = [30, 60, 120];
+  var HOT_WATER_BOOSTS = [30, 60];
+
+  function boostActions(product, choices) {
+    if (product.mode === 'BOOST') {
+      return [{ label: 'Stop boost', stop: true }];
+    }
+    return choices.map(function (minutes) {
+      return { label: formatMinutes(minutes), minutes: minutes };
+    });
+  }
+
+  function heatingCard(zone, label, boostTemperature) {
+    var note;
+    var activity = zone.active === true ? 'Heating now' : zone.active === false ? 'Not heating' : '';
+    if (zone.mode === 'BOOST') {
+      note = 'Boosting to ' + formatTemp(zone.target) +
+        (typeof zone.boost === 'number' ? ', ' + formatMinutes(zone.boost) + ' left' : '');
+    } else if (zone.mode === 'OFF') {
+      note = 'Off';
+    } else {
+      note = (zone.mode === 'MANUAL' ? 'Manual' : 'Schedule') + ', set to ' + formatTemp(zone.target);
+    }
+    return {
+      id: zone.id,
+      label: label,
+      value: formatTenths(zone.temperature),
+      note: zone.online ? note : 'Offline',
+      activity: zone.online ? activity : '',
+      boosting: zone.mode === 'BOOST',
+      online: zone.online,
+      actionsLabel: zone.mode === 'BOOST' ? '' : 'Boost to ' + formatTemp(boostTemperature),
+      actions: boostActions(zone, HEATING_BOOSTS)
+    };
+  }
+
+  var HOT_WATER_MODES = { SCHEDULE: 'Schedule', ON: 'Always on', OFF: 'Always off' };
+
+  function hotWaterCard(water, label) {
+    var note = HOT_WATER_MODES[water.mode] || '';
+    if (water.mode === 'BOOST') {
+      note = 'Boosting' + (typeof water.boost === 'number' ? ', ' + formatMinutes(water.boost) + ' left' : '');
+    }
+    return {
+      id: water.id,
+      label: label,
+      value: water.active === true ? 'On' : water.active === false ? 'Off' : '–',
+      note: water.online ? note : 'Offline',
+      activity: '',
+      boosting: water.mode === 'BOOST',
+      online: water.online,
+      actionsLabel: water.mode === 'BOOST' ? '' : 'Boost',
+      actions: boostActions(water, HOT_WATER_BOOSTS)
+    };
+  }
+
+  // The Hive popup from /api/hive: a card per heating zone and for hot water,
+  // each with its boost buttons. Null until there's a response.
+  function buildHiveView(payload) {
+    var cards = [];
+    var updated;
+    var heating;
+    var water;
+
+    if (!payload || !payload.configured) {
+      return null;
+    }
+    if (!payload.available) {
+      return {
+        cards: [],
+        status: '',
+        warning: false,
+        message: payload.needsSignIn ? 'Hive needs signing in again. Run npm run hive-login on the server.' :
+          payload.failed ? "Can't reach Hive right now. Still trying." : 'Getting the heating…'
+      };
+    }
+    heating = payload.heating || [];
+    water = payload.hotWater || [];
+    heating.forEach(function (zone) {
+      cards.push(heatingCard(zone, heating.length > 1 && zone.name ? zone.name : 'Heating', payload.boostTemperature));
+    });
+    water.forEach(function (product) {
+      cards.push(hotWaterCard(product, 'Hot water'));
+    });
+    updated = formatTime(new Date(payload.updatedAt));
+    return {
+      cards: cards,
+      status: payload.needsSignIn ? 'Hive needs signing in again (npm run hive-login). Readings from ' + updated :
+        payload.failed ? "Can't update. Readings from " + updated : 'Updated ' + updated,
+      warning: Boolean(payload.failed),
+      message: cards.length ? '' : 'No heating or hot water found on this Hive account.'
+    };
+  }
+
   // The graph's lines, drawn in this order so the dashed import line sits on top.
   var SOLAR_SERIES = [
     { key: 'solar', label: 'Solar' },
@@ -502,6 +609,8 @@
     buildTimetableView: buildTimetableView,
     buildSolarView: buildSolarView,
     buildSolarChart: buildSolarChart,
+    buildHiveView: buildHiveView,
+    formatMinutes: formatMinutes,
     formatPower: formatPower,
     formatEnergy: formatEnergy,
     musicSubtitle: musicSubtitle,

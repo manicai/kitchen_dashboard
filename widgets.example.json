@@ -17,5 +17,10 @@
   "solar": {
     "apiKey": "your-foxess-api-key",
     "sn": "your-inverter-serial-number"
+  },
+  "hive": {
+    "username": "you@example.com",
+    "password": "your-hive-password",
+    "boostTemperature": 21
   }
 }

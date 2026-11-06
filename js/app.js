@@ -40,7 +40,7 @@
     window.SpeechRecognition || window.webkitSpeechRecognition || null;
   var buttons = null; // Latest /api/buttons response: which popup buttons to show.
   var buttonsTimer = null;
-  var popup = null; // 'timetable' or 'solar' while a popup is open.
+  var popup = null; // 'timetable', 'solar' or 'hive' while a popup is open.
   var popupData = null; // Its latest response.
   var popupFailed = false;
   var popupRequestId = 0;
@@ -48,7 +48,11 @@
   var popupCloseTimer = null;
   var popupRefreshTimer = null;
   var POPUP_MS = 2 * 60 * 1000;
-  var POPUP_URLS = { timetable: 'api/timetable', solar: 'api/solar' };
+  var POPUP_URLS = { timetable: 'api/timetable', solar: 'api/solar', hive: 'api/hive' };
+  var hiveBusy = null; // { id, key } of the Hive button whose change is in flight.
+  var hiveFailed = ''; // What the last Hive change was, if it failed.
+  // The server caches Hive for 30 seconds; a boost from the Hive app shows within a minute.
+  var HIVE_REFRESH_MS = 30 * 1000;
   // The server caches FoxESS for a few minutes; this just picks up its next update.
   var SOLAR_REFRESH_MS = 60 * 1000;
   var BINS_REFRESH_MS = 60 * 60 * 1000;
@@ -595,6 +599,7 @@
   function renderButtons() {
     show('button-timetable', !!(buttons && buttons.timetable), 'footer-button');
     show('button-solar', !!(buttons && buttons.solar), 'footer-button');
+    show('button-hive', !!(buttons && buttons.hive), 'footer-button');
     if (buttons && buttons.timetable) {
       el('button-timetable-label').textContent = buttons.timetable;
     }
@@ -769,6 +774,81 @@
     }
   }
 
+  function hiveAction(card, action) {
+    var key = action.stop ? 'stop' : String(action.minutes);
+    var id = popupRequestId;
+    var url = action.stop ? 'api/hive/stop?id=' + encodeURIComponent(card.id) :
+      'api/hive/boost?id=' + encodeURIComponent(card.id) + '&minutes=' + action.minutes;
+    if (hiveBusy) {
+      return;
+    }
+    hiveBusy = { id: card.id, key: key };
+    hiveFailed = '';
+    renderPopup();
+    getJson(url, function (body) {
+      hiveBusy = null;
+      if (id !== popupRequestId || popup !== 'hive') {
+        return;
+      }
+      popupData = body;
+      popupFailed = false;
+      renderPopup();
+    }, function () {
+      hiveBusy = null;
+      if (id !== popupRequestId || popup !== 'hive') {
+        return;
+      }
+      hiveFailed = (action.stop ? "Couldn't stop the " : "Couldn't boost the ") + card.label.toLowerCase() + '. Try again.';
+      renderPopup();
+    }, 'POST');
+  }
+
+  function createHiveCard(card) {
+    var box = createDiv('hive-card' + (card.boosting ? ' hive-card--boosting' : ''));
+    var buttonsRow = createDiv('hive-actions');
+    box.appendChild(createDiv('widget-label', card.label));
+    box.appendChild(createDiv('hive-value', card.value));
+    box.appendChild(createDiv('hive-note', card.note));
+    box.appendChild(createDiv('hive-activity', card.activity));
+    box.appendChild(createDiv('hive-actions-label', card.actionsLabel));
+    card.actions.forEach(function (action) {
+      var button = document.createElement('button');
+      var key = action.stop ? 'stop' : String(action.minutes);
+      var pressed = hiveBusy && hiveBusy.id === card.id && hiveBusy.key === key;
+      button.type = 'button';
+      button.className = 'hive-button' + (action.stop ? ' hive-button--stop' : '') + (pressed ? ' is-busy' : '');
+      button.textContent = pressed ? (action.stop ? 'Stopping…' : 'Boosting…') : action.label;
+      button.disabled = !!hiveBusy || !card.online;
+      button.addEventListener('click', function () {
+        hiveAction(card, action);
+      });
+      buttonsRow.appendChild(button);
+    });
+    box.appendChild(buttonsRow);
+    return box;
+  }
+
+  function renderHive(body) {
+    var view = core.buildHiveView(popupData);
+    var row;
+    el('popup-title').textContent = 'Heating';
+    if (!view) {
+      el('popup-message').textContent = popupFailed ? "Can't reach the dashboard server. Still trying." : 'Getting the heating…';
+      return;
+    }
+    el('popup-message').textContent = view.message;
+    el('popup-status').textContent = hiveFailed || (popupFailed ? "Can't update. " : '') + view.status;
+    el('popup-status').className = 'popup-status' +
+      (hiveFailed || view.warning || popupFailed ? ' popup-status--warning' : '');
+    if (view.cards.length) {
+      row = createDiv('hive-cards');
+      view.cards.forEach(function (card) {
+        row.appendChild(createHiveCard(card));
+      });
+      body.appendChild(row);
+    }
+  }
+
   function renderPopup() {
     var body = el('popup-body');
     if (!popup) {
@@ -780,6 +860,8 @@
     el('popup-status').textContent = '';
     if (popup === 'timetable') {
       renderTimetable(body);
+    } else if (popup === 'hive') {
+      renderHive(body);
     } else {
       renderSolar(body);
     }
@@ -798,6 +880,8 @@
       renderPopup();
       if (kind === 'solar') {
         popupRefreshTimer = window.setTimeout(refreshPopup, SOLAR_REFRESH_MS);
+      } else if (kind === 'hive') {
+        popupRefreshTimer = window.setTimeout(refreshPopup, HIVE_REFRESH_MS);
       }
     }, function () {
       if (id !== popupRequestId) {
@@ -812,6 +896,7 @@
   function closePopup() {
     popup = null;
     popupData = null;
+    hiveFailed = '';
     popupRequestId++;
     window.clearTimeout(popupCloseTimer);
     window.clearTimeout(popupRefreshTimer);
@@ -962,6 +1047,9 @@
     });
     el('button-solar').addEventListener('click', function () {
       openPopup('solar');
+    });
+    el('button-hive').addEventListener('click', function () {
+      openPopup('hive');
     });
     el('popup-close').addEventListener('click', closePopup);
     el('music-mic').addEventListener('click', listen);

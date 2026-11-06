@@ -359,3 +359,37 @@ test('the solar chart breaks lines at gaps and picks a round kW scale', () => {
   assert.equal(core.buildSolarChart({ start, step, solar: [null], house: [], export: [], import: [] }), null);
   assert.equal(core.buildSolarChart(undefined), null);
 });
+
+test('Hive popup shows each heating zone and hot water with boost buttons', () => {
+  const payload = {
+    configured: true, available: true, failed: false, boostTemperature: 21, updatedAt: new Date(2026, 10, 6, 18, 5).getTime(),
+    heating: [{ id: 'h', name: 'Receiver 1', online: true, mode: 'SCHEDULE', boost: null, active: true, temperature: 19.46, target: 18 }],
+    hotWater: [{ id: 'w', name: 'Hot Water', online: true, mode: 'BOOST', boost: 75, active: true }]
+  };
+  const view = core.buildHiveView(payload);
+  const [heating, water] = view.cards;
+  assert.equal(heating.label, 'Heating');
+  assert.equal(heating.value, '19.5°');
+  assert.equal(heating.note, 'Schedule, set to 18°');
+  assert.equal(heating.activity, 'Heating now');
+  assert.equal(heating.actionsLabel, 'Boost to 21°');
+  assert.deepEqual(heating.actions.map((a) => a.label), ['30 min', '1 hr', '2 hr']);
+  assert.equal(water.value, 'On');
+  assert.equal(water.note, 'Boosting, 1 hr 15 min left');
+  assert.deepEqual(water.actions, [{ label: 'Stop boost', stop: true }]);
+  assert.equal(view.status, 'Updated 18:05');
+});
+
+test('Hive popup names zones when there are several, and explains when it can\'t read Hive', () => {
+  const zone = { online: true, mode: 'OFF', active: false, temperature: 17, target: 7 };
+  const view = core.buildHiveView({
+    configured: true, available: true, updatedAt: 0, boostTemperature: 21, hotWater: [],
+    heating: [{ ...zone, id: 'a', name: 'Upstairs' }, { ...zone, id: 'b', name: 'Downstairs', online: false }]
+  });
+  assert.deepEqual(view.cards.map((c) => c.label), ['Upstairs', 'Downstairs']);
+  assert.equal(view.cards[0].note, 'Off');
+  assert.equal(view.cards[1].note, 'Offline');
+  assert.equal(core.buildHiveView({ configured: false }), null);
+  assert.match(core.buildHiveView({ configured: true, available: false, needsSignIn: true }).message, /hive-login/);
+  assert.match(core.buildHiveView({ configured: true, available: false, failed: true }).message, /Can't reach Hive/);
+});

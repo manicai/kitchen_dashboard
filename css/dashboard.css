@@ -636,7 +636,7 @@ input {
   align-items: baseline;
   -webkit-flex: 0 0 auto;
   flex: 0 0 auto;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .popup-title {
@@ -773,8 +773,19 @@ input {
 
 /* Solar */
 
+/* Tiles at their own height, then the graph takes what's left. */
+.solar-layout {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  height: 100%;
+}
+
 .solar-section {
-  margin-bottom: 1.5rem;
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  margin-bottom: 1rem;
 }
 
 .solar-tiles {
@@ -788,7 +799,7 @@ input {
   flex: 1 1 0%;
   min-width: 0;
   margin-right: 1rem;
-  padding: 1rem 1.25rem;
+  padding: 0.625rem 1.125rem;
   border-radius: 0.75rem;
   background: #1d2125;
 }
@@ -803,8 +814,8 @@ input {
 }
 
 .solar-tile-value {
-  margin-top: 0.25rem;
-  font-size: 2.375rem;
+  margin-top: 0.125rem;
+  font-size: 2rem;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -815,7 +826,7 @@ input {
 }
 
 .solar-tile-note {
-  margin-top: 0.25rem;
+  margin-top: 0.125rem;
   font-size: 1.125rem;
   color: #a3a8ad;
 }
@@ -1075,3 +1086,58 @@ input {
     width: 100%;
   }
 }
+
+.solar-legend {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+}
+
+.solar-legend .widget-label {
+  margin-right: 1.5rem;
+}
+
+.solar-key {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  margin-right: 1.5rem;
+  font-size: 1.125rem;
+  color: #d5d9dd;
+}
+
+/* Colours kept in step with SOLAR_COLOURS in app.js. Import is dashed on the graph too. */
+.solar-key-swatch {
+  width: 1.5rem;
+  height: 0;
+  margin-right: 0.5rem;
+  border-top: 0.2rem solid #f5b942;
+}
+
+.solar-key--house .solar-key-swatch {
+  border-top-color: #7aa7f5;
+}
+
+.solar-key--export .solar-key-swatch {
+  border-top-color: #48c09a;
+}
+
+.solar-key--import .solar-key-swatch {
+  border-top: 0.2rem dashed #e8735a;
+}
+
+.solar-chart {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.solar-chart svg {
+  display: block;
+}
+

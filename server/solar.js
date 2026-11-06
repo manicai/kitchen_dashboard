@@ -1,17 +1,20 @@
 'use strict';
 
 // Today's solar figures from the FoxESS Cloud Open API (www.foxesscloud.com):
-// what the panels, house, battery and grid are doing now, and today's totals.
+// what the panels, house, battery and grid are doing now, today's totals, and
+// how solar, house, export and import have gone since midnight.
 //
 // The API allows about 1440 calls a day per inverter and one a second, and the
 // cloud only updates every five minutes or so, so answers are cached and calls
-// are spaced out. Each refresh makes two calls.
+// are spaced out. Each refresh makes three calls, so even refreshing all day
+// stays under the limit.
 
 const crypto = require('node:crypto');
 
 const BASE_URL = 'https://www.foxesscloud.com';
 const REAL_PATH = '/op/v0/device/real/query';
 const REPORT_PATH = '/op/v0/device/report/query';
+const HISTORY_PATH = '/op/v0/device/history/query';
 const CACHE_MS = 4 * 60 * 1000;
 const RETRY_MS = 60 * 1000;
 const CALL_GAP_MS = 1100;
@@ -20,6 +23,11 @@ const TIMEOUT_MS = 20 * 1000;
 const REAL_VARIABLES = ['pvPower', 'loadsPower', 'SoC', 'batChargePower', 'batDischargePower',
   'gridConsumptionPower', 'feedinPower'];
 const REPORT_VARIABLES = ['generation', 'loads', 'feedin', 'gridConsumption'];
+// The graph's lines, by the names the dashboard uses.
+const HISTORY_VARIABLES = { pvPower: 'solar', loadsPower: 'house', feedinPower: 'export', gridConsumptionPower: 'import' };
+// FoxESS samples every few minutes; five-minute averages keep the graph's shape
+// and keep the response small for the tablet.
+const HISTORY_STEP_MS = 5 * 60 * 1000;
 
 // FoxESS signs path, key and timestamp joined by a literal backslash-r-backslash-n
 // (their example builds it from a Python raw string), not a real line break.
@@ -113,8 +121,60 @@ function parseReport(result, day) {
   };
 }
 
+// History times look like "2026-11-06 00:03:51 GMT+0000". Without an offset
+// they're taken as local time.
+function parseTime(value) {
+  if (typeof value === 'number') {
+    return value;
+  }
+  const match = /^(\d{4})-(\d\d)-(\d\d)[ T](\d\d):(\d\d)(?::(\d\d))?(?:\D*([+-])(\d\d):?(\d\d))?/.exec(String(value));
+  if (!match) {
+    return null;
+  }
+  const [, y, mo, d, h, mi, sec = '0', sign, oh, om] = match;
+  if (!sign) {
+    return new Date(+y, mo - 1, +d, +h, +mi, +sec).getTime();
+  }
+  const offset = (sign === '-' ? -1 : 1) * (oh * 60 + +om) * 60 * 1000;
+  return Date.UTC(+y, mo - 1, +d, +h, +mi, +sec) - offset;
+}
+
+// History result: [{ datas: [{ variable, unit, data: [{ time, value }] }] }].
+// Returns five-minute averages from `start`: { start, step, solar: [...], ... },
+// with null where FoxESS has nothing.
+function parseHistory(result, start, end) {
+  const datas = Array.isArray(result) && result[0] && Array.isArray(result[0].datas) ? result[0].datas : null;
+  if (!datas) {
+    throw new Error('Unexpected history response');
+  }
+  const count = Math.max(0, Math.ceil((end - start) / HISTORY_STEP_MS));
+  const history = { start, step: HISTORY_STEP_MS };
+  Object.values(HISTORY_VARIABLES).forEach((name) => {
+    history[name] = new Array(count).fill(null);
+  });
+  datas.forEach((item) => {
+    const name = HISTORY_VARIABLES[item.variable];
+    if (!name || !Array.isArray(item.data)) {
+      return;
+    }
+    const sums = new Array(count).fill(0);
+    const counts = new Array(count).fill(0);
+    item.data.forEach((point) => {
+      const time = parseTime(point.time);
+      const value = number(point.value);
+      const i = time === null ? -1 : Math.floor((time - start) / HISTORY_STEP_MS);
+      if (value !== null && i >= 0 && i < count) {
+        sums[i] += value;
+        counts[i] += 1;
+      }
+    });
+    history[name] = sums.map((sum, i) => (counts[i] ? Math.round(sum / counts[i] * 1000) / 1000 : null));
+  });
+  return history;
+}
+
 function createSolar({ apiKey, sn, request = createFoxRequest(apiKey), nowMs = Date.now }) {
-  let data = null; // { updatedAt, now, today }
+  let data = null; // { updatedAt, now, today, history }
   let fetchedAt = 0;
   let failed = false;
   let pending = null;
@@ -130,7 +190,20 @@ function createSolar({ apiKey, sn, request = createFoxRequest(apiKey), nowMs = D
         dimension: 'month',
         variables: REPORT_VARIABLES
       }), started.getDate());
-      data = { updatedAt: started.getTime(), now: real, today };
+      const midnight = new Date(started.getFullYear(), started.getMonth(), started.getDate()).getTime();
+      // The graph is a nice-to-have: without it, keep the last one rather than lose the figures.
+      let history = data && data.history && data.history.start === midnight ? data.history : null;
+      try {
+        history = parseHistory(await request(HISTORY_PATH, {
+          sn,
+          variables: Object.keys(HISTORY_VARIABLES),
+          begin: midnight,
+          end: started.getTime()
+        }), midnight, started.getTime());
+      } catch (err) {
+        console.error('FoxESS solar history failed to update: ' + err.message);
+      }
+      data = { updatedAt: started.getTime(), now: real, today, history };
       failed = false;
     } catch (err) {
       failed = true;
@@ -161,4 +234,6 @@ function createSolar({ apiKey, sn, request = createFoxRequest(apiKey), nowMs = D
   return { status };
 }
 
-module.exports = { createSolar, signature, parseReal, parseReport, REAL_PATH, REPORT_PATH };
+module.exports = {
+  createSolar, signature, parseReal, parseReport, parseHistory, parseTime, REAL_PATH, REPORT_PATH, HISTORY_PATH
+};

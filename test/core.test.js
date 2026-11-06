@@ -331,3 +331,31 @@ test('the solar view reads battery and grid direction', () => {
     "Can't reach FoxESS right now. Still trying.");
   assert.equal(core.buildSolarView({ configured: false }), null);
 });
+
+test('the solar chart breaks lines at gaps and picks a round kW scale', () => {
+  const start = new Date(2026, 10, 6).getTime();
+  const step = 5 * 60 * 1000;
+  const history = {
+    start,
+    step,
+    solar: [0, 0.4, null, 3.2],
+    house: [0.5, null, null, 0.6],
+    export: [null, null, null, null],
+    import: [0.5, -0.01, null, null]
+  };
+  const chart = core.buildSolarChart(history);
+  assert.deepEqual(chart.series.map((s) => s.label), ['Solar', 'House', 'Export', 'Import']);
+  assert.deepEqual(chart.series[0].runs.map((r) => r.map((p) => p.kw)), [[0, 0.4], [3.2]]);
+  assert.equal(chart.series[0].runs[0][0].x, 0.5 * step / 86400000);
+  assert.deepEqual(chart.series[2].runs, []);
+  assert.equal(chart.series[3].runs[0][1].kw, 0, 'never below the axis');
+  assert.equal(chart.top, 4);
+  assert.deepEqual(chart.yTicks, [0, 1, 2, 3, 4]);
+  assert.deepEqual(chart.xTicks.map((t) => t.label), ['00:00', '06:00', '12:00', '18:00', '24:00']);
+  assert.deepEqual(chart.xTicks.map((t) => t.x), [0, 0.25, 0.5, 0.75, 1]);
+
+  history.solar[3] = 5.1;
+  assert.deepEqual(core.buildSolarChart(history).yTicks, [0, 2, 4, 6]);
+  assert.equal(core.buildSolarChart({ start, step, solar: [null], house: [], export: [], import: [] }), null);
+  assert.equal(core.buildSolarChart(undefined), null);
+});

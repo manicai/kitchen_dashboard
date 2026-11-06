@@ -82,12 +82,13 @@ or when Close is tapped.
   The scraper only fetches this week and next, so run it again each week. The file is
   read on every tap, so a new one shows without restarting the server. `name` labels
   the button.
-- **Solar** shows what the panels, house, battery and grid are doing now, and today's
-  totals so far, from the FoxESS Cloud. Get an API key at
+- **Solar** shows what the panels, house, battery and grid are doing now, today's
+  totals so far, and a graph of solar, house use, export and import since midnight,
+  from the FoxESS Cloud. Get an API key at
   [foxesscloud.com](https://www.foxesscloud.com) under User Profile > API Management.
   `sn` is the inverter's serial number, listed under Devices. FoxESS limits each inverter to
-  about 1,440 API calls a day. Each update takes two, and the server reuses figures for
-  four minutes, so a popup left open uses about 30 calls an hour. Their cloud only
+  about 1,440 API calls a day. Each update takes three, and the server reuses figures for
+  four minutes, so a popup left open uses about 45 calls an hour. Their cloud only
   updates every five minutes anyway.
 
 ### Choosing music

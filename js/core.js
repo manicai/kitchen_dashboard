@@ -420,15 +420,88 @@
     return {
       now: nowTiles,
       today: todayTiles,
+      chart: buildSolarChart(payload.history),
       status: payload.failed ? "Can't update. Figures from " + updated : 'Updated ' + updated,
       warning: Boolean(payload.failed),
       message: ''
     };
   }
 
+  // The graph's lines, drawn in this order so the dashed import line sits on top.
+  var SOLAR_SERIES = [
+    { key: 'solar', label: 'Solar' },
+    { key: 'house', label: 'House' },
+    { key: 'export', label: 'Export' },
+    { key: 'import', label: 'Import' }
+  ];
+
+  // A round top for the kW axis, and a step that gives three to five lines.
+  function solarScale(max) {
+    var top = Math.max(1, Math.ceil(max));
+    var step = top <= 4 ? 1 : top <= 8 ? 2 : 5;
+    var ticks = [];
+    var kw;
+    top = Math.ceil(top / step) * step;
+    for (kw = 0; kw <= top; kw += step) {
+      ticks.push(kw);
+    }
+    return { top: top, ticks: ticks };
+  }
+
+  // Today's graph from the history in /api/solar: for each series, runs of
+  // points (x from 0 at midnight to 1 at the next, kW) broken wherever FoxESS
+  // has a gap. Null until there's something to draw.
+  function buildSolarChart(history) {
+    var start;
+    var dayMs;
+    var max = 0;
+    var series;
+    var scale;
+
+    if (!history || !history.step || !history.start) {
+      return null;
+    }
+    start = new Date(history.start);
+    // Not always 24 hours, when the clocks change.
+    dayMs = addDays(start, 1).getTime() - history.start;
+    series = SOLAR_SERIES.map(function (def) {
+      var values = history[def.key] || [];
+      var runs = [];
+      var run = null;
+      var i;
+      for (i = 0; i < values.length; i++) {
+        if (typeof values[i] !== 'number') {
+          run = null;
+        } else {
+          if (!run) {
+            run = [];
+            runs.push(run);
+          }
+          run.push({ x: Math.min(1, (i + 0.5) * history.step / dayMs), kw: Math.max(0, values[i]) });
+          max = Math.max(max, values[i]);
+        }
+      }
+      return { key: def.key, label: def.label, runs: runs };
+    });
+    if (series.every(function (s) { return !s.runs.length; })) {
+      return null;
+    }
+    scale = solarScale(max);
+    return {
+      series: series,
+      top: scale.top,
+      yTicks: scale.ticks,
+      xTicks: [0, 6, 12, 18, 24].map(function (h) {
+        var hour = h === 24 ? addDays(start, 1) : new Date(start.getFullYear(), start.getMonth(), start.getDate(), h);
+        return { x: (hour.getTime() - history.start) / dayMs, label: pad(h) + ':00' };
+      })
+    };
+  }
+
   var api = {
     buildTimetableView: buildTimetableView,
     buildSolarView: buildSolarView,
+    buildSolarChart: buildSolarChart,
     formatPower: formatPower,
     formatEnergy: formatEnergy,
     musicSubtitle: musicSubtitle,

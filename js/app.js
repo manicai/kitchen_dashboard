@@ -653,8 +653,98 @@
     return section;
   }
 
+  // Kept in step with .solar-key--* in the stylesheet.
+  var SOLAR_COLOURS = { solar: '#f5b942', house: '#7aa7f5', export: '#48c09a', import: '#e8735a' };
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+
+  function createSolarLegend(chart) {
+    var legend = createDiv('solar-legend');
+    legend.appendChild(createDiv('widget-label', 'Today'));
+    chart.series.forEach(function (series) {
+      var item = createDiv('solar-key solar-key--' + series.key);
+      item.appendChild(createDiv('solar-key-swatch'));
+      item.appendChild(document.createTextNode(series.label));
+      legend.appendChild(item);
+    });
+    return legend;
+  }
+
+  function svg(name, attrs, parent) {
+    var node = document.createElementNS(SVG_NS, name);
+    Object.keys(attrs).forEach(function (key) {
+      node.setAttribute(key, attrs[key]);
+    });
+    parent.appendChild(node);
+    return node;
+  }
+
+  // The day's lines, drawn at the box's own pixel size so lines and text stay crisp.
+  function drawSolarChart(box, chart) {
+    var rem = parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+    var width = box.clientWidth;
+    var height = box.clientHeight;
+    var left = rem * 3.25;
+    var right = rem * 1.25;
+    var top = rem * 0.75;
+    var bottom = rem * 1.75;
+    var plotWidth = width - left - right;
+    var plotHeight = height - top - bottom;
+    var root;
+    var stroke = Math.max(2, rem * 0.15);
+
+    if (plotWidth <= 0 || plotHeight <= 0) {
+      return;
+    }
+    function x(fraction) {
+      return (left + fraction * plotWidth).toFixed(1);
+    }
+    function y(kw) {
+      return (top + plotHeight - Math.min(kw, chart.top) / chart.top * plotHeight).toFixed(1);
+    }
+    function line(run) {
+      return run.map(function (point, i) {
+        return (i ? 'L' : 'M') + x(point.x) + ' ' + y(point.kw);
+      }).join('');
+    }
+
+    root = svg('svg', { width: width, height: height, viewBox: '0 0 ' + width + ' ' + height, 'aria-hidden': 'true' }, box);
+    chart.yTicks.forEach(function (kw) {
+      svg('line', {
+        x1: left, x2: left + plotWidth, y1: y(kw), y2: y(kw),
+        stroke: kw === 0 ? '#5b6167' : '#2b3035', 'stroke-width': 1
+      }, root);
+      svg('text', {
+        x: left - rem * 0.5, y: y(kw), 'text-anchor': 'end', dy: '0.35em', fill: '#a3a8ad', 'font-size': rem
+      }, root).textContent = kw + (kw === chart.top ? ' kW' : '');
+    });
+    chart.xTicks.forEach(function (tick, i) {
+      svg('text', {
+        x: x(tick.x), y: top + plotHeight + rem * 1.25, fill: '#a3a8ad', 'font-size': rem,
+        'text-anchor': i === 0 ? 'start' : i === chart.xTicks.length - 1 ? 'end' : 'middle'
+      }, root).textContent = tick.label;
+    });
+    chart.series.forEach(function (series) {
+      var colour = SOLAR_COLOURS[series.key];
+      series.runs.forEach(function (run) {
+        if (series.key === 'solar') {
+          svg('path', {
+            d: line(run) + 'L' + x(run[run.length - 1].x) + ' ' + y(0) + 'L' + x(run[0].x) + ' ' + y(0) + 'Z',
+            fill: colour, 'fill-opacity': 0.16, stroke: 'none'
+          }, root);
+        }
+        svg('path', {
+          d: line(run), fill: 'none', stroke: colour, 'stroke-width': stroke,
+          'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+          'stroke-dasharray': series.key === 'import' ? stroke * 2.5 + ' ' + stroke * 2 : 'none'
+        }, root);
+      });
+    });
+  }
+
   function renderSolar(body) {
     var view = core.buildSolarView(popupData);
+    var layout;
+    var chart = null;
     el('popup-title').textContent = 'Solar';
     if (!view) {
       el('popup-message').textContent = popupFailed ? "Can't get the solar figures. Still trying." : 'Getting the solar figures…';
@@ -664,8 +754,18 @@
     el('popup-status').textContent = view.status;
     el('popup-status').className = 'popup-status' + (view.warning || popupFailed ? ' popup-status--warning' : '');
     if (view.now.length) {
-      body.appendChild(createSolarSection('Now', view.now));
-      body.appendChild(createSolarSection('So far today', view.today));
+      layout = createDiv('solar-layout');
+      layout.appendChild(createSolarSection('Now', view.now));
+      layout.appendChild(createSolarSection('So far today', view.today));
+      if (view.chart) {
+        layout.appendChild(createSolarLegend(view.chart));
+        chart = createDiv('solar-chart');
+        layout.appendChild(chart);
+      }
+      body.appendChild(layout);
+      if (chart) {
+        drawSolarChart(chart, view.chart); // Once it's in the page, so it can be measured.
+      }
     }
   }
 

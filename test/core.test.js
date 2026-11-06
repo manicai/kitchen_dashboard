@@ -262,3 +262,11 @@ test('buildSonosView shows while playing or recently paused', () => {
   assert.equal(core.buildSonosView({ configured: true, available: false }), null);
   assert.equal(core.buildSonosView(null), null);
 });
+
+test('musicSubtitle names the kind unless the subtitle already does', () => {
+  assert.equal(core.musicSubtitle({ kind: 'album', subtitle: 'Blur' }), 'Album · Blur');
+  assert.equal(core.musicSubtitle({ kind: 'playlist', subtitle: 'Spotify Playlist' }), 'Spotify Playlist');
+  assert.equal(core.musicSubtitle({ kind: 'station', subtitle: 'TuneIn Station' }), 'TuneIn Station');
+  assert.equal(core.musicSubtitle({ kind: 'playlist', subtitle: '' }), 'Playlist');
+  assert.equal(core.musicSubtitle({ kind: '', subtitle: '' }), '');
+});

@@ -291,9 +291,9 @@ input {
 }
 
 .sonos-button {
-  width: 5rem;
+  width: 4.5rem;
   height: 4rem;
-  margin-right: 1rem;
+  margin-right: 0.75rem;
   padding: 1rem;
   box-sizing: border-box;
   border: 0;
@@ -316,6 +316,10 @@ input {
 
 .sonos-button[disabled] {
   opacity: 0.35;
+}
+
+.sonos-music {
+  color: #f2efe9;
 }
 
 /* Today's events */
@@ -551,6 +555,18 @@ input {
   color: #a3a8ad;
 }
 
+/* Opens the music picker while the Sonos card is hidden. */
+.footer-music {
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-right: auto;
+  padding: 0.5rem;
+  box-sizing: border-box;
+  border: 0;
+  background: none;
+  color: #a3a8ad;
+}
+
 /* The weather status, and taller than it looks: it's the tap target for changing location. */
 .location-button {
   min-height: 2.75rem;
@@ -658,6 +674,140 @@ input {
   background: none;
 }
 
+/* Music picker. Reuses the location setup's full-screen panel and form. */
+
+.music-inner {
+  max-width: 900px;
+}
+
+.music-header {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.music-header .setup-title {
+  margin: 0;
+}
+
+.music-close {
+  margin-top: 0;
+}
+
+.music-mic {
+  width: 48px;
+  height: 48px;
+  margin-right: 8px;
+  padding: 10px;
+  box-sizing: border-box;
+  border: 1px solid #a3a8ad;
+  border-radius: 24px;
+  background: none;
+  color: #f2efe9;
+}
+
+.music-mic--listening {
+  border-color: #f0b04f;
+  background: #f0b04f;
+  color: #14171a;
+}
+
+.music-section-title {
+  margin: 24px 0 4px;
+  font-size: 15px;
+  font-weight: 400;
+  color: #a3a8ad;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.music-list {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 0 -8px;
+  padding: 0;
+  list-style: none;
+}
+
+.music-list li {
+  width: 50%;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+
+.music-item {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid #2b3035;
+  background: none;
+  text-align: left;
+}
+
+.music-item:active {
+  background: #1d2125;
+}
+
+.music-item[disabled] {
+  opacity: 0.5;
+}
+
+.music-art {
+  -webkit-flex: 0 0 48px;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  margin-right: 12px;
+  padding: 10px;
+  box-sizing: border-box;
+  border-radius: 4px;
+  background: #2b3035;
+  color: #a3a8ad;
+  overflow: hidden;
+}
+
+.music-art--image {
+  padding: 0;
+}
+
+.music-art img {
+  display: block;
+  width: 48px;
+  height: 48px;
+}
+
+.music-text {
+  min-width: 0;
+}
+
+.music-name,
+.music-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.music-sub {
+  margin-top: 2px;
+  font-size: 15px;
+  color: #a3a8ad;
+}
+
+.music-sub:empty {
+  display: none;
+}
+
 /* Portrait isn't the target, but stay usable: stack everything. */
 @media (orientation: portrait) {
   .columns,
@@ -690,5 +840,9 @@ input {
     padding-left: 0;
     border-top: 1px solid #2b3035;
     border-left: 0;
+  }
+
+  .music-list li {
+    width: 100%;
   }
 }

@@ -30,9 +30,13 @@ function send(res, status, type, body) {
 const SONOS_COMMANDS = ['toggle', 'next', 'volume-up', 'volume-down'];
 
 const DISABLED_BINS = { upcoming: async () => ({ configured: false, collections: [], failed: false }) };
+const NOT_CONFIGURED = async () => { throw new Error('Sonos is not configured'); };
 const DISABLED_SONOS = {
   status: async () => ({ configured: false, available: false }),
-  command: async () => { throw new Error('Sonos is not configured'); }
+  command: NOT_CONFIGURED,
+  browseLibrary: NOT_CONFIGURED,
+  search: NOT_CONFIGURED,
+  play: NOT_CONFIGURED
 };
 
 function sendJson(res, promise, what) {
@@ -47,12 +51,16 @@ function sendJson(res, promise, what) {
 
 function createServer({ store, bins = DISABLED_BINS, sonos = DISABLED_SONOS, root }) {
   return http.createServer((req, res) => {
-    const route = req.url.split('?')[0];
+    const url = new URL(req.url, 'http://dashboard');
+    const route = url.pathname;
     const sonosCommand = route.startsWith('/api/sonos/') ? route.slice('/api/sonos/'.length) : '';
 
     if (req.method === 'POST' && SONOS_COMMANDS.includes(sonosCommand)) {
       req.resume();
       sendJson(res, sonos.command(sonosCommand), 'control Sonos');
+    } else if (req.method === 'POST' && route === '/api/sonos/play') {
+      req.resume();
+      sendJson(res, sonos.play(url.searchParams.get('id') || ''), 'play on Sonos');
     } else if (req.method !== 'GET') {
       send(res, 405, 'text/plain', 'Method not allowed');
     } else if (route === '/api/today') {
@@ -61,6 +69,10 @@ function createServer({ store, bins = DISABLED_BINS, sonos = DISABLED_SONOS, roo
       sendJson(res, bins.upcoming(new Date()), 'read bins');
     } else if (route === '/api/sonos') {
       sendJson(res, sonos.status(), 'read Sonos');
+    } else if (route === '/api/sonos/library') {
+      sendJson(res, sonos.browseLibrary(), 'browse Sonos');
+    } else if (route === '/api/sonos/search') {
+      sendJson(res, sonos.search(url.searchParams.get('q') || ''), 'search Sonos');
     } else if (Object.prototype.hasOwnProperty.call(PUBLIC_FILES, route)) {
       const [file, type] = PUBLIC_FILES[route];
       fs.readFile(path.join(root, file), (err, body) => {
@@ -125,6 +137,17 @@ function loadWidgets(file) {
   };
 }
 
+function readJsonIfPresent(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return [];
+    }
+    throw err;
+  }
+}
+
 function main() {
   const root = path.join(__dirname, '..');
   const port = Number(process.env.PORT) || 8000;
@@ -139,7 +162,12 @@ function main() {
   }
   const store = createCalendarStore({ calendars, fetchText: fetchFeed });
   const bins = widgets.binsUrl ? createBinStore({ url: widgets.binsUrl, fetchText: fetchFeed }) : undefined;
-  const sonos = widgets.sonos ? createSonos(widgets.sonos) : undefined;
+  const recentFile = process.env.SONOS_RECENT_FILE || path.join(root, 'sonos-recent.json');
+  const sonos = widgets.sonos ? createSonos({
+    ...widgets.sonos,
+    loadRecent: () => readJsonIfPresent(recentFile),
+    saveRecent: (items) => fs.writeFileSync(recentFile, JSON.stringify(items))
+  }) : undefined;
   createServer({ store, bins, sonos, root }).listen(port, () => {
     console.log('Kitchen dashboard on port ' + port + ' with ' + calendars.length + ' calendar(s)' +
       (bins ? ', bins' : '') + (sonos ? ', Sonos room "' + widgets.sonos.room + '"' : ''));

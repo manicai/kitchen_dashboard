@@ -33,6 +33,12 @@
   var sonos = null; // Latest /api/sonos response.
   var sonosTimer = null;
   var sonosBusy = false;
+  var musicRequestId = 0;
+  var musicBusy = false;
+  var recognition = null; // The voice search in progress, if any.
+  // Web Speech needs a secure page: over plain http it's there but always refused.
+  var SpeechRecognition = window.isSecureContext === false ? null :
+    window.SpeechRecognition || window.webkitSpeechRecognition || null;
   var BINS_REFRESH_MS = 60 * 60 * 1000;
   var SONOS_ACTIVE_MS = 5 * 1000;
   var SONOS_IDLE_MS = 15 * 1000;
@@ -285,7 +291,9 @@
 
   function renderSonos() {
     var view = core.buildSonosView(sonos);
+    var canChoose = !!(sonos && sonos.configured && sonos.available);
     show('sonos', !!view, 'widget sonos');
+    show('footer-music', canChoose && !view, 'footer-music');
     if (!view) {
       return false;
     }
@@ -297,6 +305,7 @@
     el('sonos-next').disabled = sonosBusy || !view.canNext;
     el('sonos-volume-down').disabled = sonosBusy;
     el('sonos-volume-up').disabled = sonosBusy;
+    el('sonos-music').disabled = sonosBusy;
     return true;
   }
 
@@ -358,6 +367,213 @@
       sonosBusy = false;
       refreshSonos();
     }, 'POST');
+  }
+
+  // Music picker: what was last started from it, Sonos favourites and playlists,
+  // and a search of those plus the music library on the speakers.
+
+  function setMusicMessage(text) {
+    el('music-message').textContent = text;
+  }
+
+  function createMusicItem(item) {
+    var li = document.createElement('li');
+    var button = document.createElement('button');
+    var art = createDiv('music-art');
+    var text = createDiv('music-text');
+    var img;
+
+    button.type = 'button';
+    button.className = 'music-item';
+    if (item.art) {
+      img = document.createElement('img');
+      img.alt = '';
+      img.onerror = function () {
+        art.removeChild(img);
+        art.className = 'music-art';
+        art.appendChild(createIcon('music'));
+      };
+      img.src = item.art;
+      art.className += ' music-art--image';
+      art.appendChild(img);
+    } else {
+      art.appendChild(createIcon('music'));
+    }
+    text.appendChild(createDiv('music-name', item.title || 'Untitled'));
+    text.appendChild(createDiv('music-sub', core.musicSubtitle(item)));
+    button.appendChild(art);
+    button.appendChild(text);
+    button.addEventListener('click', function () {
+      playMusic(item, button);
+    });
+    li.appendChild(button);
+    return li;
+  }
+
+  function renderMusicSections(sections) {
+    var container = el('music-lists');
+    clear(container);
+    sections.forEach(function (section) {
+      var heading;
+      var list;
+      if (!section.items || !section.items.length) {
+        return;
+      }
+      if (section.title) {
+        heading = document.createElement('h2');
+        heading.className = 'music-section-title';
+        heading.textContent = section.title;
+        container.appendChild(heading);
+      }
+      list = document.createElement('ul');
+      list.className = 'music-list';
+      section.items.forEach(function (item) {
+        list.appendChild(createMusicItem(item));
+      });
+      container.appendChild(list);
+    });
+  }
+
+  function showMusicLibrary() {
+    var id = ++musicRequestId;
+    clear(el('music-lists'));
+    setMusicMessage('Getting your music…');
+    getJson('api/sonos/library', function (body) {
+      var sections;
+      if (id !== musicRequestId) {
+        return;
+      }
+      sections = [
+        { title: 'Played recently', items: (body.recent || []).slice(0, 6) },
+        { title: 'Favourites', items: body.favourites },
+        { title: 'Playlists', items: body.playlists }
+      ];
+      setMusicMessage(sections.some(function (section) { return section.items && section.items.length; }) ? '' :
+        'No Sonos favourites or playlists yet. Search the music library above, or add favourites in the Sonos app.');
+      renderMusicSections(sections);
+    }, function () {
+      if (id === musicRequestId) {
+        setMusicMessage("Can't reach the Sonos speakers right now.");
+      }
+    });
+  }
+
+  function searchMusic(query) {
+    var id = ++musicRequestId;
+    clear(el('music-lists'));
+    if (!query) {
+      showMusicLibrary();
+      return;
+    }
+    if (query.length < 2) {
+      setMusicMessage('Type at least two letters.');
+      return;
+    }
+    setMusicMessage('Searching…');
+    getJson('api/sonos/search?q=' + encodeURIComponent(query), function (body) {
+      if (id !== musicRequestId) {
+        return;
+      }
+      setMusicMessage(body.items.length ? '' :
+        'Nothing called that in your favourites, playlists or music library. Streaming services can only be reached through favourites.');
+      renderMusicSections([{ title: '', items: body.items }]);
+    }, function () {
+      if (id === musicRequestId) {
+        setMusicMessage("Can't search right now. Try again?");
+      }
+    });
+  }
+
+  function playMusic(item, button) {
+    if (musicBusy) {
+      return;
+    }
+    musicBusy = true;
+    button.disabled = true;
+    setMusicMessage('Starting ' + (item.title || 'that') + '…');
+    getJson('api/sonos/play?id=' + encodeURIComponent(item.id), function (body) {
+      musicBusy = false;
+      sonos = body;
+      closeMusic();
+      render();
+      scheduleSonos();
+    }, function () {
+      musicBusy = false;
+      button.disabled = false;
+      setMusicMessage("Couldn't start " + (item.title || 'that') + '. Try again?');
+    }, 'POST');
+  }
+
+  function stopListening() {
+    if (recognition) {
+      recognition.onend = null;
+      try {
+        recognition.abort();
+      } catch (e) {
+        // Already stopped.
+      }
+      recognition = null;
+    }
+    el('music-mic').className = SpeechRecognition ? 'music-mic' : 'music-mic is-hidden';
+  }
+
+  function listen() {
+    var heard = false;
+    if (recognition) {
+      stopListening();
+      return;
+    }
+    try {
+      recognition = new SpeechRecognition();
+    } catch (e) {
+      setMusicMessage("Voice search isn't available on this tablet.");
+      return;
+    }
+    recognition.lang = 'en-GB';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = function (event) {
+      var text = event.results[0][0].transcript;
+      heard = true;
+      stopListening();
+      el('music-input').value = text;
+      searchMusic(text.trim());
+    };
+    recognition.onerror = function (event) {
+      heard = true;
+      stopListening();
+      setMusicMessage(event.error === 'not-allowed' || event.error === 'service-not-allowed' ?
+        "This browser isn't allowed to use the microphone." :
+        event.error === 'network' ? "Voice search can't reach its speech service." :
+        "Didn't catch that. Try again, or type it.");
+    };
+    recognition.onend = function () {
+      stopListening();
+      if (!heard) {
+        setMusicMessage("Didn't catch that. Try again, or type it.");
+      }
+    };
+    el('music-mic').className = 'music-mic music-mic--listening';
+    setMusicMessage('Listening…');
+    try {
+      recognition.start();
+    } catch (e) {
+      stopListening();
+      setMusicMessage("Voice search isn't available on this tablet.");
+    }
+  }
+
+  function openMusic() {
+    el('music-input').value = '';
+    stopListening();
+    el('music').className = 'setup music';
+    showMusicLibrary();
+  }
+
+  function closeMusic() {
+    musicRequestId++;
+    stopListening();
+    el('music').className = 'setup music is-hidden';
   }
 
   function refreshEvents() {
@@ -530,6 +746,16 @@
     el('sonos-volume-up').addEventListener('click', function () {
       sonosCommand('volume-up');
     });
+    el('sonos-music').addEventListener('click', openMusic);
+    el('footer-music').addEventListener('click', openMusic);
+    el('music-close').addEventListener('click', closeMusic);
+    el('music-mic').addEventListener('click', listen);
+    el('music-form').addEventListener('submit', function (event) {
+      event.preventDefault();
+      el('music-input').blur(); // Puts the keyboard away so the results can be seen.
+      searchMusic(el('music-input').value.trim());
+    });
+    stopListening(); // Shows the microphone if voice search might work.
 
     tick();
     refreshEvents();

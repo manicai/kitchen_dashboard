@@ -99,3 +99,21 @@ test('Sonos controls are POST only and pass the command through', async () => {
   }, { sonos });
   assert.deepEqual(seen, ['next', 'toggle', 'volume-up']);
 });
+
+test('the music picker browses, searches and plays by ID only', async () => {
+  const seen = [];
+  const sonos = {
+    status: async () => ({ configured: true, available: true, state: 'stopped' }),
+    command: async () => ({}),
+    browseLibrary: async () => ({ recent: [], favourites: [{ id: 'FV:2/1', title: 'Radio' }], playlists: [] }),
+    search: async (q) => { seen.push('search ' + q); return { items: [] }; },
+    play: async (id) => { seen.push('play ' + id); return { configured: true, available: true, state: 'playing' }; }
+  };
+  await withServer(idleStore, async (base) => {
+    assert.equal((await (await fetch(base + '/api/sonos/library')).json()).favourites[0].id, 'FV:2/1');
+    assert.equal((await fetch(base + '/api/sonos/search?q=blur%20park')).status, 200);
+    assert.equal((await fetch(base + '/api/sonos/play?id=FV:2/1')).status, 404);
+    assert.equal((await (await fetch(base + '/api/sonos/play?id=FV%3A2%2F1', { method: 'POST' })).json()).state, 'playing');
+  }, { sonos });
+  assert.deepEqual(seen, ['search blur park', 'play FV:2/1']);
+});

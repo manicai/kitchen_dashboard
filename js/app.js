@@ -31,7 +31,7 @@
   var binsTimer = null;
   var sonos = null; // Latest /api/sonos response.
   var sonosTimer = null;
-  var sonosBusy = false;
+  var sonosBusy = null; // Name of the command in flight, if any.
   var musicRequestId = 0;
   var musicBusy = false;
   var recognition = null; // The voice search in progress, if any.
@@ -41,6 +41,12 @@
   var BINS_REFRESH_MS = 60 * 60 * 1000;
   var SONOS_ACTIVE_MS = 5 * 1000;
   var SONOS_IDLE_MS = 15 * 1000;
+  var SONOS_BUTTONS = {
+    'toggle': 'sonos-toggle',
+    'next': 'sonos-next',
+    'volume-down': 'sonos-volume-down',
+    'volume-up': 'sonos-volume-up'
+  };
 
   function el(id) {
     return document.getElementById(id);
@@ -295,11 +301,11 @@
     el('sonos-artist').textContent = view.artist;
     el('sonos-toggle').setAttribute('aria-label', view.playing ? 'Pause' : 'Play');
     el('sonos-toggle-icon').setAttributeNS(XLINK_NS, 'xlink:href', view.playing ? '#icon-pause' : '#icon-play');
-    el('sonos-toggle').disabled = sonosBusy;
-    el('sonos-next').disabled = sonosBusy || !view.canNext;
-    el('sonos-volume-down').disabled = sonosBusy;
-    el('sonos-volume-up').disabled = sonosBusy;
-    el('sonos-music').disabled = sonosBusy;
+    el('sonos-next').disabled = !view.canNext;
+    // Only the pressed button shows the wait; dimming them all made the card flash.
+    for (var command in SONOS_BUTTONS) {
+      el(SONOS_BUTTONS[command]).classList.toggle('is-pending', sonosBusy === command);
+    }
     return true;
   }
 
@@ -350,15 +356,15 @@
     if (sonosBusy) {
       return;
     }
-    sonosBusy = true;
+    sonosBusy = name;
     render();
     getJson('api/sonos/' + name, function (body) {
-      sonosBusy = false;
+      sonosBusy = null;
       sonos = body;
       render();
       scheduleSonos();
     }, function () {
-      sonosBusy = false;
+      sonosBusy = null;
       refreshSonos();
     }, 'POST');
   }

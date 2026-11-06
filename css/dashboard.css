@@ -301,7 +301,8 @@ input {
   background: #2b3035;
 }
 
-.sonos-button:active {
+.sonos-button:active,
+.sonos-button.is-pending {
   background: #3a4046;
 }
 

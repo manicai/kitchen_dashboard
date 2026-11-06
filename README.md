@@ -47,11 +47,13 @@ Copy `widgets.example.json` to `widgets.json` and restart the server:
 {
   "weather": { "name": "Cambridge", "latitude": 52.2053, "longitude": 0.1218 },
   "bins": { "url": "https://servicelayer3c.azure-api.net/wastecalendar/calendar/ical/200004201579" },
-  "sonos": { "room": "Kitchen" }
+  "sonos": { "room": "Kitchen" },
+  "timetable": { "name": "Robbie", "file": "robbie_timetable.json" },
+  "solar": { "apiKey": "...", "sn": "..." }
 }
 ```
 
-Leave out `bins` or `sonos` to turn that widget off. Like `calendars.json`, `widgets.json`
+Leave out `bins`, `sonos`, `timetable` or `solar` to turn that widget off. Like `calendars.json`, `widgets.json`
 is ignored by git and never served.
 
 - **Weather** is for the `latitude` and `longitude` given (`name` is only used in the
@@ -66,6 +68,27 @@ is ignored by git and never served.
   the Sonos app. If the kitchen is grouped with other rooms, the buttons, volume included,
   control the whole group. The widget shows while the room is playing and for 15 minutes after it
   stops, so it can be resumed. Next is greyed out for radio, which has no next track.
+
+### Popups along the bottom
+
+`timetable` and `solar` each add a button at the bottom left. Tapping one covers the
+dashboard with a full-screen popup, which goes back to the dashboard after two minutes
+or when Close is tapped.
+
+- **Timetable** shows a school day from `file`, a list of lessons written by
+  `scripts/timetable.py` (`uv run scripts/timetable.py > robbie_timetable.json`). It
+  shows today until the last lesson ends, then the next day in the file. Lessons that
+  are over are dimmed, the current one is highlighted, and breaks and lunch are marked.
+  The scraper only fetches this week and next, so run it again each week. The file is
+  read on every tap, so a new one shows without restarting the server. `name` labels
+  the button.
+- **Solar** shows what the panels, house, battery and grid are doing now, and today's
+  totals so far, from the FoxESS Cloud. Get an API key at
+  [foxesscloud.com](https://www.foxesscloud.com) under User Profile > API Management.
+  `sn` is the inverter's serial number, listed under Devices. FoxESS limits each inverter to
+  about 1,440 API calls a day. Each update takes two, and the server reuses figures for
+  four minutes, so a popup left open uses about 30 calls an hour. Their cloud only
+  updates every five minutes anyway.
 
 ### Choosing music
 

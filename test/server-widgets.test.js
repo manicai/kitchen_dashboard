@@ -35,3 +35,17 @@ test('a weather section without usable coordinates is rejected', () => {
     withConfig({ weather }, (file) => assert.throws(() => loadWidgets(file), /latitude and longitude/));
   }
 });
+
+test('timetable and solar are read from widgets.json and checked', () => {
+  withConfig({ timetable: { name: 'Robbie', file: 'robbie_timetable.json' }, solar: { apiKey: 'k', sn: 's' } }, (file) => {
+    const widgets = loadWidgets(file);
+    assert.deepEqual(widgets.timetable, { name: 'Robbie', file: 'robbie_timetable.json' });
+    assert.deepEqual(widgets.solar, { apiKey: 'k', sn: 's' });
+  });
+  withConfig({}, (file) => {
+    assert.equal(loadWidgets(file).timetable, undefined);
+    assert.equal(loadWidgets(file).solar, undefined);
+  });
+  withConfig({ timetable: { name: 'Robbie' } }, (file) => assert.throws(() => loadWidgets(file), /timetable needs/));
+  withConfig({ solar: { apiKey: 'k' } }, (file) => assert.throws(() => loadWidgets(file), /solar needs/));
+});

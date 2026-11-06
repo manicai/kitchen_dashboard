@@ -127,3 +127,18 @@ test('the location defaults to Cambridge and can be set', async () => {
     assert.deepEqual(await (await fetch(base + '/api/location')).json(), location);
   }, { location });
 });
+
+test('popup buttons show only for what is set up', async () => {
+  await withServer(idleStore, async (base) => {
+    assert.deepEqual(await (await fetch(base + '/api/buttons')).json(), { timetable: '', solar: false });
+    assert.equal((await (await fetch(base + '/api/timetable')).json()).configured, false);
+    assert.equal((await (await fetch(base + '/api/solar')).json()).configured, false);
+  });
+  const timetable = { name: 'Robbie', day: async () => ({ configured: true, name: 'Robbie', date: '2026-11-06', lessons: [] }) };
+  const solar = { status: async () => ({ configured: true, available: false, failed: false }) };
+  await withServer(idleStore, async (base) => {
+    assert.deepEqual(await (await fetch(base + '/api/buttons')).json(), { timetable: 'Robbie', solar: true });
+    assert.equal((await (await fetch(base + '/api/timetable')).json()).date, '2026-11-06');
+    assert.equal((await (await fetch(base + '/api/solar')).json()).configured, true);
+  }, { timetable, solar });
+});

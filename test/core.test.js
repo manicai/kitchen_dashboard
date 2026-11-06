@@ -256,3 +256,78 @@ test('musicSubtitle names the kind unless the subtitle already does', () => {
   assert.equal(core.musicSubtitle({ kind: 'playlist', subtitle: '' }), 'Playlist');
   assert.equal(core.musicSubtitle({ kind: '', subtitle: '' }), '');
 });
+
+test('the timetable marks past and current lessons and names the gaps', () => {
+  const payload = {
+    configured: true,
+    name: 'Robbie',
+    date: '2026-11-06',
+    lessons: [
+      { start: '09:10', end: '09:50', subject: 'Maths', teacher: 'Ms X Lin', room: 'N11' },
+      { start: '09:50', end: '10:30', subject: 'MFL - Spanish', teacher: 'Mr O J Peat', room: 'S17' },
+      { start: '10:50', end: '12:10', subject: 'Games', teacher: 'Mrs P Girdwood', room: '' },
+      { start: '14:00', end: '15:00', subject: 'PER - Religious Studies', teacher: 'Mr H N Craig', room: 'Room 3' }
+    ]
+  };
+  const view = core.buildTimetableView(payload, new Date(2026, 10, 6, 10, 0));
+  assert.equal(view.title, 'Robbie');
+  assert.equal(view.day, 'Today');
+  assert.deepEqual(view.rows.map((r) => r.kind === 'break' ? r.label + ' ' + r.time : r.state + ' ' + r.subject), [
+    'past Maths', 'now Spanish', 'Break 10:30', ' Games', 'Lunch 12:10', ' Religious Studies'
+  ]);
+  assert.equal(view.rows[0].time, '09:10–09:50');
+  assert.equal(view.rows[2].state, '');
+  assert.equal(core.buildTimetableView(payload, new Date(2026, 10, 6, 10, 40)).rows[2].state, 'now');
+  assert.equal(view.rows[0].detail, 'N11 · Ms X Lin');
+  assert.equal(view.rows[3].detail, 'Mrs P Girdwood');
+
+  const evening = core.buildTimetableView(payload, new Date(2026, 10, 5, 18, 0));
+  assert.equal(evening.day, 'Tomorrow');
+  assert.ok(evening.rows.every((r) => !r.state));
+  assert.equal(core.buildTimetableView(payload, new Date(2026, 10, 4, 18, 0)).day, 'Friday 6 November');
+});
+
+test('the timetable says when it has run out, and hides when not set up', () => {
+  assert.equal(core.buildTimetableView({ configured: false }, new Date()), null);
+  assert.equal(core.buildTimetableView(null, new Date()), null);
+  const view = core.buildTimetableView({ configured: true, name: 'Robbie', date: null, lessons: [], lastDate: '2026-11-13' },
+    new Date(2026, 10, 14));
+  assert.equal(view.message, 'No timetable saved after Friday 13 November.');
+});
+
+test('power and energy are formatted for a glance', () => {
+  assert.equal(core.formatPower(2.414), '2.4 kW');
+  assert.equal(core.formatPower(0.354), '350 W');
+  assert.equal(core.formatPower(0), '0 W');
+  assert.equal(core.formatPower(null), '–');
+  assert.equal(core.formatEnergy(8.34), '8.3 kWh');
+  assert.equal(core.formatEnergy(null), '–');
+});
+
+test('the solar view reads battery and grid direction', () => {
+  const payload = {
+    configured: true,
+    available: true,
+    failed: false,
+    updatedAt: new Date(2026, 10, 6, 12, 5).getTime(),
+    now: { solar: 2.41, house: 0.62, batteryLevel: 76.4, batteryCharge: 1.2, batteryDischarge: 0, gridImport: 0.01, gridExport: 0.55 },
+    today: { generated: 8.3, used: 10.1, exported: 2.1, imported: null }
+  };
+  const view = core.buildSolarView(payload);
+  assert.deepEqual(view.now.map((t) => [t.label, t.value, t.note]), [
+    ['Solar', '2.4 kW', ''], ['House', '620 W', ''], ['Battery', '76%', 'Charging 1.2 kW'], ['Exporting', '550 W', '']
+  ]);
+  assert.deepEqual(view.today.map((t) => t.value), ['8.3 kWh', '10.1 kWh', '2.1 kWh', '–']);
+  assert.equal(view.status, 'Updated 12:05');
+
+  payload.failed = true;
+  payload.now = { solar: 0, house: 0.4, batteryLevel: null, batteryCharge: null, batteryDischarge: null, gridImport: 0.4, gridExport: 0 };
+  const stale = core.buildSolarView(payload);
+  assert.deepEqual(stale.now.map((t) => t.label), ['Solar', 'House', 'Importing']);
+  assert.equal(stale.status, "Can't update. Figures from 12:05");
+  assert.equal(stale.warning, true);
+
+  assert.equal(core.buildSolarView({ configured: true, available: false, failed: true }).message,
+    "Can't reach FoxESS right now. Still trying.");
+  assert.equal(core.buildSolarView({ configured: false }), null);
+});

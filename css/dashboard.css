@@ -559,11 +559,20 @@ input {
   color: #a3a8ad;
 }
 
+/* Popup buttons, and the music button when it shows, along the bottom left. */
+.footer-buttons {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  margin-right: auto;
+}
+
 /* Opens the music picker while the Sonos card is hidden. */
 .footer-music {
   width: 2.75rem;
   height: 2.75rem;
-  margin-right: auto;
+  margin-right: 0.5rem;
   padding: 0.5rem;
   box-sizing: border-box;
   border: 0;
@@ -571,8 +580,248 @@ input {
   color: #a3a8ad;
 }
 
+.footer-button {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  height: 2.75rem;
+  margin-right: 0.75rem;
+  padding: 0 1.125rem 0 0.875rem;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 1.375rem;
+  background: #1d2125;
+  color: #d5d9dd;
+  font-size: 1.125rem;
+  white-space: nowrap;
+}
+
+.footer-button:active {
+  background: #2b3035;
+}
+
+.footer-button .icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-right: 0.5rem;
+  color: #a3a8ad;
+}
+
 .weather-status {
   padding-left: 1rem;
+}
+
+/* Popups: full screen over the dashboard, sized in rem like it. */
+
+.popup {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 1.5rem 2rem 1rem;
+  background: #14171a;
+}
+
+.popup-header {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: baseline;
+  align-items: baseline;
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  margin-bottom: 1rem;
+}
+
+.popup-title {
+  margin: 0;
+  font-size: 2.25rem;
+  font-weight: 400;
+}
+
+.popup-subtitle {
+  margin-left: 1rem;
+  font-size: 1.5rem;
+  color: #a3a8ad;
+}
+
+.popup-close {
+  -webkit-align-self: center;
+  align-self: center;
+  margin-left: auto;
+  min-height: 3rem;
+  padding: 0 1.5rem;
+  border: 1px solid #a3a8ad;
+  border-radius: 1.5rem;
+  background: none;
+  font-size: 1.25rem;
+}
+
+.popup-close:active {
+  background: #2b3035;
+}
+
+.popup-message {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #a3a8ad;
+}
+
+.popup-body {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.popup-status {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  margin: 0.5rem 0 0;
+  font-size: 1rem;
+  color: #a3a8ad;
+  text-align: right;
+}
+
+.popup-status--warning {
+  color: #f0b04f;
+}
+
+.popup-message:empty,
+.popup-status:empty {
+  display: none;
+}
+
+/* Timetable */
+
+.lessons {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lesson {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: baseline;
+  align-items: baseline;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+}
+
+.lesson-time {
+  -webkit-flex: 0 0 9rem;
+  flex: 0 0 9rem;
+  font-size: 1.25rem;
+  color: #a3a8ad;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lesson-subject {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 1.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lesson-detail {
+  -webkit-flex: 0 1 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: 1rem;
+  overflow: hidden;
+  font-size: 1.25rem;
+  color: #a3a8ad;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lesson--past {
+  opacity: 0.45;
+}
+
+.lesson--now {
+  background: #2b3035;
+  box-shadow: inset 0.3rem 0 0 #f5b942;
+}
+
+.lesson--now .lesson-time {
+  color: #f5b942;
+}
+
+.lesson-break {
+  padding: 0.125rem 0.75rem 0.125rem 9.75rem;
+  font-size: 1rem;
+  color: #a3a8ad;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.lesson-break--now {
+  color: #f5b942;
+}
+
+/* Solar */
+
+.solar-section {
+  margin-bottom: 1.5rem;
+}
+
+.solar-tiles {
+  display: -webkit-flex;
+  display: flex;
+  margin-top: 0.5rem;
+}
+
+.solar-tile {
+  -webkit-flex: 1 1 0%;
+  flex: 1 1 0%;
+  min-width: 0;
+  margin-right: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 0.75rem;
+  background: #1d2125;
+}
+
+.solar-tile:last-child {
+  margin-right: 0;
+}
+
+.solar-tile-label {
+  font-size: 1.125rem;
+  color: #a3a8ad;
+}
+
+.solar-tile-value {
+  margin-top: 0.25rem;
+  font-size: 2.375rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.solar-tile--lead .solar-tile-value {
+  color: #f5b942;
+}
+
+.solar-tile-note {
+  margin-top: 0.25rem;
+  font-size: 1.125rem;
+  color: #a3a8ad;
+}
+
+.solar-tile-note:empty {
+  display: none;
 }
 
 .weather-status--warning {

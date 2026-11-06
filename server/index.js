@@ -10,6 +10,8 @@ const path = require('node:path');
 const { createCalendarStore, parseConfig } = require('./calendars.js');
 const { createBinStore } = require('./bins.js');
 const { createSonos } = require('./sonos.js');
+const { createTimetable } = require('./timetable.js');
+const { createSolar } = require('./solar.js');
 
 const FETCH_TIMEOUT_MS = 20 * 1000;
 const DEFAULT_LOCATION = { name: 'Cambridge', latitude: 52.2053, longitude: 0.1218 };
@@ -39,6 +41,8 @@ const DISABLED_SONOS = {
   search: NOT_CONFIGURED,
   play: NOT_CONFIGURED
 };
+const DISABLED_TIMETABLE = { name: '', day: async () => ({ configured: false }) };
+const DISABLED_SOLAR = { status: async () => ({ configured: false, available: false }) };
 
 function sendJson(res, promise, what) {
   promise.then(
@@ -50,7 +54,10 @@ function sendJson(res, promise, what) {
   );
 }
 
-function createServer({ store, bins = DISABLED_BINS, sonos = DISABLED_SONOS, location = DEFAULT_LOCATION, root }) {
+function createServer({
+  store, bins = DISABLED_BINS, sonos = DISABLED_SONOS, timetable = DISABLED_TIMETABLE, solar = DISABLED_SOLAR,
+  location = DEFAULT_LOCATION, root
+}) {
   return http.createServer((req, res) => {
     const url = new URL(req.url, 'http://dashboard');
     const route = url.pathname;
@@ -66,6 +73,16 @@ function createServer({ store, bins = DISABLED_BINS, sonos = DISABLED_SONOS, loc
       send(res, 405, 'text/plain', 'Method not allowed');
     } else if (route === '/api/location') {
       send(res, 200, 'application/json', JSON.stringify(location));
+    } else if (route === '/api/buttons') {
+      // Which popup buttons to show along the bottom.
+      send(res, 200, 'application/json', JSON.stringify({
+        timetable: timetable === DISABLED_TIMETABLE ? '' : timetable.name,
+        solar: solar !== DISABLED_SOLAR
+      }));
+    } else if (route === '/api/timetable') {
+      sendJson(res, timetable.day(new Date()), 'read the timetable');
+    } else if (route === '/api/solar') {
+      sendJson(res, solar.status(), 'read solar');
     } else if (route === '/api/today') {
       sendJson(res, store.today(new Date()), 'build today');
     } else if (route === '/api/bins') {
@@ -148,10 +165,20 @@ function loadWidgets(file) {
   if (bins && !/^https?:\/\//i.test(bins)) {
     throw new Error('widgets.json: bins.url must be an http, https or webcal url');
   }
+  const timetable = config.timetable;
+  if (timetable && !(timetable.name && timetable.file)) {
+    throw new Error('widgets.json: timetable needs a name and a file');
+  }
+  const solar = config.solar;
+  if (solar && !(solar.apiKey && solar.sn)) {
+    throw new Error('widgets.json: solar needs the FoxESS apiKey and the inverter sn');
+  }
   return {
     location: parseLocation(config.weather),
     binsUrl: bins,
-    sonos: sonos && { room: String(sonos.room), host: sonos.host ? String(sonos.host) : '' }
+    sonos: sonos && { room: String(sonos.room), host: sonos.host ? String(sonos.host) : '' },
+    timetable: timetable && { name: String(timetable.name), file: String(timetable.file) },
+    solar: solar && { apiKey: String(solar.apiKey), sn: String(solar.sn) }
   };
 }
 
@@ -186,11 +213,19 @@ function main() {
     loadRecent: () => readJsonIfPresent(recentFile),
     saveRecent: (items) => fs.writeFileSync(recentFile, JSON.stringify(items))
   }) : undefined;
+  // Relative to the project, like the other config files.
+  const timetableFile = widgets.timetable && path.resolve(root, widgets.timetable.file);
+  const timetable = widgets.timetable ? createTimetable({
+    name: widgets.timetable.name,
+    load: () => JSON.parse(fs.readFileSync(timetableFile, 'utf8'))
+  }) : undefined;
+  const solar = widgets.solar ? createSolar(widgets.solar) : undefined;
   const location = widgets.location;
-  createServer({ store, bins, sonos, location, root }).listen(port, () => {
+  createServer({ store, bins, sonos, timetable, solar, location, root }).listen(port, () => {
     console.log('Kitchen dashboard on port ' + port + ' for ' + (location.name || 'the configured location') +
       ' with ' + calendars.length + ' calendar(s)' +
-      (bins ? ', bins' : '') + (sonos ? ', Sonos room "' + widgets.sonos.room + '"' : ''));
+      (bins ? ', bins' : '') + (sonos ? ', Sonos room "' + widgets.sonos.room + '"' : '') +
+      (timetable ? ', ' + timetable.name + "'s timetable" : '') + (solar ? ', FoxESS solar' : ''));
   });
 }
 

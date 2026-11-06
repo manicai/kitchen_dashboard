@@ -9,5 +9,13 @@
   },
   "sonos": {
     "room": "Kitchen"
+  },
+  "timetable": {
+    "name": "Robbie",
+    "file": "robbie_timetable.json"
+  },
+  "solar": {
+    "apiKey": "your-foxess-api-key",
+    "sn": "your-inverter-serial-number"
   }
 }

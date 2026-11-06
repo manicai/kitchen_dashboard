@@ -38,6 +38,19 @@
   // Web Speech needs a secure page: over plain http it's there but always refused.
   var SpeechRecognition = window.isSecureContext === false ? null :
     window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  var buttons = null; // Latest /api/buttons response: which popup buttons to show.
+  var buttonsTimer = null;
+  var popup = null; // 'timetable' or 'solar' while a popup is open.
+  var popupData = null; // Its latest response.
+  var popupFailed = false;
+  var popupRequestId = 0;
+  var popupClosesAt = 0;
+  var popupCloseTimer = null;
+  var popupRefreshTimer = null;
+  var POPUP_MS = 2 * 60 * 1000;
+  var POPUP_URLS = { timetable: 'api/timetable', solar: 'api/solar' };
+  // The server caches FoxESS for a few minutes; this just picks up its next update.
+  var SOLAR_REFRESH_MS = 60 * 1000;
   var BINS_REFRESH_MS = 60 * 60 * 1000;
   var SONOS_ACTIVE_MS = 5 * 1000;
   var SONOS_IDLE_MS = 15 * 1000;
@@ -576,6 +589,146 @@
     el('music').className = 'setup music is-hidden';
   }
 
+  // Popups opened from the buttons along the bottom. Each covers the dashboard for
+  // a couple of minutes, then goes back to it.
+
+  function renderButtons() {
+    show('button-timetable', !!(buttons && buttons.timetable), 'footer-button');
+    show('button-solar', !!(buttons && buttons.solar), 'footer-button');
+    if (buttons && buttons.timetable) {
+      el('button-timetable-label').textContent = buttons.timetable;
+    }
+  }
+
+  function loadButtons() {
+    window.clearTimeout(buttonsTimer);
+    getJson('api/buttons', function (body) {
+      buttons = body;
+      renderButtons();
+    }, function () {
+      buttonsTimer = window.setTimeout(loadButtons, RETRY_MS);
+    });
+  }
+
+  function renderTimetable(body) {
+    var view = core.buildTimetableView(popupData, new Date());
+    var list;
+    el('popup-title').textContent = buttons && buttons.timetable ? buttons.timetable : 'Timetable';
+    if (!view) {
+      el('popup-message').textContent = popupFailed ? "Can't get the timetable. Still trying." : 'Getting the timetable…';
+      return;
+    }
+    el('popup-subtitle').textContent = view.day;
+    el('popup-message').textContent = view.message;
+    list = document.createElement('ol');
+    list.className = 'lessons';
+    view.rows.forEach(function (row) {
+      var item = document.createElement('li');
+      if (row.kind === 'break') {
+        item.className = 'lesson-break' + (row.state ? ' lesson-break--now' : '');
+        item.textContent = row.label;
+      } else {
+        item.className = 'lesson' + (row.state ? ' lesson--' + row.state : '');
+        item.appendChild(createDiv('lesson-time', row.time));
+        item.appendChild(createDiv('lesson-subject', row.subject));
+        item.appendChild(createDiv('lesson-detail', row.detail));
+      }
+      list.appendChild(item);
+    });
+    body.appendChild(list);
+  }
+
+  function createSolarSection(title, tiles) {
+    var section = createDiv('solar-section');
+    var row = createDiv('solar-tiles');
+    section.appendChild(createDiv('widget-label', title));
+    tiles.forEach(function (tile, i) {
+      var box = createDiv('solar-tile' + (i === 0 ? ' solar-tile--lead' : ''));
+      box.appendChild(createDiv('solar-tile-label', tile.label));
+      box.appendChild(createDiv('solar-tile-value', tile.value));
+      box.appendChild(createDiv('solar-tile-note', tile.note));
+      row.appendChild(box);
+    });
+    section.appendChild(row);
+    return section;
+  }
+
+  function renderSolar(body) {
+    var view = core.buildSolarView(popupData);
+    el('popup-title').textContent = 'Solar';
+    if (!view) {
+      el('popup-message').textContent = popupFailed ? "Can't get the solar figures. Still trying." : 'Getting the solar figures…';
+      return;
+    }
+    el('popup-message').textContent = view.message;
+    el('popup-status').textContent = view.status;
+    el('popup-status').className = 'popup-status' + (view.warning || popupFailed ? ' popup-status--warning' : '');
+    if (view.now.length) {
+      body.appendChild(createSolarSection('Now', view.now));
+      body.appendChild(createSolarSection('So far today', view.today));
+    }
+  }
+
+  function renderPopup() {
+    var body = el('popup-body');
+    if (!popup) {
+      return;
+    }
+    clear(body);
+    el('popup-subtitle').textContent = '';
+    el('popup-message').textContent = '';
+    el('popup-status').textContent = '';
+    if (popup === 'timetable') {
+      renderTimetable(body);
+    } else {
+      renderSolar(body);
+    }
+  }
+
+  function refreshPopup() {
+    var id = ++popupRequestId;
+    var kind = popup;
+    window.clearTimeout(popupRefreshTimer);
+    getJson(POPUP_URLS[kind], function (body) {
+      if (id !== popupRequestId) {
+        return;
+      }
+      popupData = body;
+      popupFailed = false;
+      renderPopup();
+      if (kind === 'solar') {
+        popupRefreshTimer = window.setTimeout(refreshPopup, SOLAR_REFRESH_MS);
+      }
+    }, function () {
+      if (id !== popupRequestId) {
+        return;
+      }
+      popupFailed = true;
+      renderPopup();
+      popupRefreshTimer = window.setTimeout(refreshPopup, RETRY_MS);
+    });
+  }
+
+  function closePopup() {
+    popup = null;
+    popupData = null;
+    popupRequestId++;
+    window.clearTimeout(popupCloseTimer);
+    window.clearTimeout(popupRefreshTimer);
+    el('popup').className = 'popup is-hidden';
+  }
+
+  function openPopup(kind) {
+    closePopup();
+    popup = kind;
+    popupFailed = false;
+    popupClosesAt = Date.now() + POPUP_MS;
+    popupCloseTimer = window.setTimeout(closePopup, POPUP_MS);
+    el('popup').className = 'popup';
+    renderPopup();
+    refreshPopup();
+  }
+
   function refreshEvents() {
     window.clearTimeout(eventsTimer);
     getJson('api/today', function (body) {
@@ -596,6 +749,7 @@
     var now = new Date();
     var date = core.formatDate(now);
     render();
+    renderPopup(); // Moves the timetable's current lesson along.
     if (renderedDate && renderedDate !== date) {
       refreshEvents();
       refreshBins();
@@ -659,6 +813,13 @@
       return;
     }
     render();
+    // Timers stall while the tablet sleeps, so a popup could outstay its welcome.
+    if (popup && Date.now() >= popupClosesAt) {
+      closePopup();
+    }
+    if (!buttons) {
+      loadButtons();
+    }
     if (!location) {
       loadLocation();
     } else if (!forecast || lastRefreshFailed || Date.now() - forecast.fetchedAt >= REFRESH_MS) {
@@ -696,6 +857,13 @@
     el('sonos-music').addEventListener('click', openMusic);
     el('footer-music').addEventListener('click', openMusic);
     el('music-close').addEventListener('click', closeMusic);
+    el('button-timetable').addEventListener('click', function () {
+      openPopup('timetable');
+    });
+    el('button-solar').addEventListener('click', function () {
+      openPopup('solar');
+    });
+    el('popup-close').addEventListener('click', closePopup);
     el('music-mic').addEventListener('click', listen);
     el('music-form').addEventListener('submit', function (event) {
       event.preventDefault();
@@ -708,6 +876,7 @@
     refreshEvents();
     refreshBins();
     refreshSonos();
+    loadButtons();
     loadLocation();
   }
 

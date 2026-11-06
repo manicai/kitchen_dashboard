@@ -283,7 +283,154 @@
     return kind && subtitle ? kind + ' · ' + subtitle : kind || subtitle;
   }
 
+  // "YYYY-MM-DD" as a local date. Not Date("YYYY-MM-DD"), which old browsers read as UTC.
+  function parseDay(text) {
+    var parts = text.split('-');
+    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  }
+
+  function minutesOf(hhmm) {
+    return Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+  }
+
+  // "MFL - Spanish" and "PER - Religious Studies" read better without the department.
+  function subjectName(subject) {
+    return subject.replace(/^[A-Z]{2,5} - /, '');
+  }
+
+  // The school day from /api/timetable, as rows: lessons, with a break or lunch
+  // row wherever there's a gap. On the day itself, lessons that are over are
+  // marked past and the one under way is marked now.
+  function buildTimetableView(payload, now) {
+    var nowIso = localIso(now);
+    var today = nowIso.slice(0, 10);
+    var time = nowIso.slice(11, 16);
+    var rows = [];
+    var lessons;
+    var i;
+
+    if (!payload || !payload.configured) {
+      return null;
+    }
+    if (!payload.date) {
+      return {
+        title: payload.name,
+        day: '',
+        rows: [],
+        message: payload.lastDate ? 'No timetable saved after ' + formatDate(parseDay(payload.lastDate)) + '.' :
+          'No timetable saved yet.'
+      };
+    }
+    lessons = payload.lessons || [];
+    for (i = 0; i < lessons.length; i++) {
+      if (i > 0 && lessons[i - 1].end < lessons[i].start) {
+        rows.push({
+          kind: 'break',
+          label: minutesOf(lessons[i].start) - minutesOf(lessons[i - 1].end) >= 40 ? 'Lunch' : 'Break',
+          time: lessons[i - 1].end,
+          state: payload.date === today && lessons[i - 1].end <= time && time < lessons[i].start ? 'now' : ''
+        });
+      }
+      rows.push({
+        kind: 'lesson',
+        time: lessons[i].start + '–' + lessons[i].end,
+        subject: subjectName(lessons[i].subject),
+        detail: [lessons[i].room, lessons[i].teacher].filter(Boolean).join(' · '),
+        state: payload.date !== today ? '' : lessons[i].end <= time ? 'past' : lessons[i].start <= time ? 'now' : ''
+      });
+    }
+    return {
+      title: payload.name,
+      day: payload.date === today ? 'Today' :
+        payload.date === localIso(addDays(now, 1)).slice(0, 10) ? 'Tomorrow' : formatDate(parseDay(payload.date)),
+      rows: rows,
+      message: ''
+    };
+  }
+
+  // FoxESS reports power in kW. Below 1 kW, watts to the nearest 10 read better.
+  function formatPower(kw) {
+    if (kw === null || kw === undefined) {
+      return '–';
+    }
+    return Math.abs(kw) < 1 ? Math.round(kw * 100) * 10 + ' W' : kw.toFixed(1) + ' kW';
+  }
+
+  function formatEnergy(kwh) {
+    return kwh === null || kwh === undefined ? '–' : kwh.toFixed(1) + ' kWh';
+  }
+
+  // Ignores the few watts meters show when nothing is really flowing.
+  var IDLE_KW = 0.05;
+
+  function flowing(kw) {
+    return typeof kw === 'number' && kw >= IDLE_KW;
+  }
+
+  // The solar popup from /api/solar: tiles for now and for today so far.
+  function buildSolarView(payload) {
+    var current;
+    var battery;
+    var grid;
+    var nowTiles;
+    var todayTiles;
+    var updated;
+
+    if (!payload || !payload.configured) {
+      return null;
+    }
+    if (!payload.available) {
+      return {
+        now: [],
+        today: [],
+        status: '',
+        warning: false,
+        message: payload.failed ? "Can't reach FoxESS right now. Still trying." : 'Getting the solar figures…'
+      };
+    }
+    current = payload.now;
+    nowTiles = [
+      { label: 'Solar', value: formatPower(current.solar), note: '' },
+      { label: 'House', value: formatPower(current.house), note: '' }
+    ];
+    if (current.batteryLevel !== null && current.batteryLevel !== undefined) {
+      battery = { label: 'Battery', value: Math.round(current.batteryLevel) + '%', note: 'Idle' };
+      if (flowing(current.batteryCharge)) {
+        battery.note = 'Charging ' + formatPower(current.batteryCharge);
+      } else if (flowing(current.batteryDischarge)) {
+        battery.note = 'Discharging ' + formatPower(current.batteryDischarge);
+      }
+      nowTiles.push(battery);
+    }
+    grid = { label: 'Grid', value: '0 W', note: '' };
+    if (flowing(current.gridExport)) {
+      grid = { label: 'Exporting', value: formatPower(current.gridExport), note: '' };
+    } else if (flowing(current.gridImport)) {
+      grid = { label: 'Importing', value: formatPower(current.gridImport), note: '' };
+    }
+    nowTiles.push(grid);
+
+    todayTiles = [
+      { label: 'Generated', value: formatEnergy(payload.today.generated), note: '' },
+      { label: 'Used', value: formatEnergy(payload.today.used), note: '' },
+      { label: 'Exported', value: formatEnergy(payload.today.exported), note: '' },
+      { label: 'Imported', value: formatEnergy(payload.today.imported), note: '' }
+    ];
+    updated = formatTime(new Date(payload.updatedAt));
+    return {
+      now: nowTiles,
+      today: todayTiles,
+      status: payload.failed ? "Can't update. Figures from " + updated : 'Updated ' + updated,
+      warning: Boolean(payload.failed),
+      message: ''
+    };
+  }
+
   var api = {
+    buildTimetableView: buildTimetableView,
+    buildSolarView: buildSolarView,
+    formatPower: formatPower,
+    formatEnergy: formatEnergy,
     musicSubtitle: musicSubtitle,
     buildEventsView: buildEventsView,
     buildBinsView: buildBinsView,

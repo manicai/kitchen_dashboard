@@ -167,7 +167,7 @@
       return event.start.slice(11, 16);
     }
     if (endsToday) {
-      return 'Until ' + event.end.slice(11, 16);
+      return '\u2192 ' + event.end.slice(11, 16);
     }
     return startsToday ? 'Now' : 'All day';
   }
@@ -189,8 +189,7 @@
       if (!eventIsFinished(event, nowIso)) {
         events.push({
           time: eventTimeLabel(event, nowIso),
-          title: event.title,
-          calendar: payload.configured > 1 ? event.calendar : ''
+          title: event.title
         });
       }
     }

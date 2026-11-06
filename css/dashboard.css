@@ -355,16 +355,10 @@ input {
 .event-time {
   -webkit-flex: 0 0 6rem;
   flex: 0 0 6rem;
+  margin-right: 0.75rem;
   font-size: 1.25rem;
   color: #a3a8ad;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.event-title,
-.event-calendar {
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -372,16 +366,10 @@ input {
   -webkit-flex: 1 1 auto;
   flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
   font-size: 1.5rem;
-}
-
-.event-calendar {
-  -webkit-flex: 0 0 auto;
-  flex: 0 0 auto;
-  max-width: 7rem;
-  margin-left: 0.75rem;
-  font-size: 1rem;
-  color: #a3a8ad;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .events-more {
@@ -418,8 +406,8 @@ input {
   display: flex;
   -webkit-flex-wrap: wrap;
   flex-wrap: wrap;
-  -webkit-align-items: center;
-  align-items: center;
+  -webkit-align-items: flex-start;
+  align-items: flex-start;
 }
 
 .current-icon {
@@ -429,6 +417,20 @@ input {
   width: 4.5rem;
   height: 4.5rem;
   margin-right: 0.75rem;
+}
+
+/*
+ * Dropped by the later hours' label and icon margin, so the current icon lines
+ * up with theirs. Not when the later hours wrap onto their own row.
+ */
+.current-icon,
+.current-temp {
+  margin-top: 1.75rem;
+}
+
+.no-side .current-icon,
+.no-side .current-temp {
+  margin-top: 0;
 }
 
 .current-temp {
@@ -511,7 +513,8 @@ input {
 }
 
 .later-label {
-  font-size: 1rem;
+  font-size: 1.25rem;
+  line-height: 1.5rem;
   color: #a3a8ad;
   font-variant-numeric: tabular-nums;
 }

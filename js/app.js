@@ -209,9 +209,6 @@
     item.className = 'event';
     item.appendChild(createDiv('event-time', event.time));
     item.appendChild(createDiv('event-title', event.title));
-    if (event.calendar) {
-      item.appendChild(createDiv('event-calendar', event.calendar));
-    }
     return item;
   }
 

@@ -138,13 +138,13 @@ function timed(title, start, end) {
 
 test('buildEventsView shows an upcoming event at its start time', () => {
   const view = core.buildEventsView(day([timed('Dentist', '2026-11-04T09:30', '2026-11-04T10:30')]), '2026-11-04T08:00');
-  assert.deepEqual(view.events, [{ time: '09:30', title: 'Dentist', calendar: '' }]);
+  assert.deepEqual(view.events, [{ time: '09:30', title: 'Dentist' }]);
   assert.equal(view.message, '');
 });
 
 test('buildEventsView shows an event in progress as until its end', () => {
   const view = core.buildEventsView(day([timed('Dentist', '2026-11-04T09:30', '2026-11-04T10:30')]), '2026-11-04T10:00');
-  assert.equal(view.events[0].time, 'Until 10:30');
+  assert.equal(view.events[0].time, '\u2192 10:30');
 });
 
 test('buildEventsView drops an event once it has finished', () => {
@@ -167,7 +167,7 @@ test('buildEventsView labels all-day events and keeps them all day', () => {
 
 test('buildEventsView shows an overnight event from yesterday as until its end', () => {
   const view = core.buildEventsView(day([timed('Night shift', '2026-11-03T22:00', '2026-11-04T06:00')]), '2026-11-04T05:00');
-  assert.equal(view.events[0].time, 'Until 06:00');
+  assert.equal(view.events[0].time, '\u2192 06:00');
 });
 
 test('buildEventsView shows an event in progress past midnight as all day', () => {
@@ -184,10 +184,9 @@ test('buildEventsView says when nothing was on at all', () => {
   assert.equal(core.buildEventsView(day([]), '2026-11-04T08:00').message, 'Nothing on today');
 });
 
-test('buildEventsView names the calendar only when there are several', () => {
+test('buildEventsView does not name the calendar an event is from', () => {
   const events = [timed('Dentist', '2026-11-04T09:30', '2026-11-04T10:30')];
-  assert.equal(core.buildEventsView(day(events, 1), '2026-11-04T08:00').events[0].calendar, '');
-  assert.equal(core.buildEventsView(day(events, 2), '2026-11-04T08:00').events[0].calendar, 'Family');
+  assert.deepEqual(Object.keys(core.buildEventsView(day(events, 2), '2026-11-04T08:00').events[0]), ['time', 'title']);
 });
 
 test('buildEventsView does not claim an empty day when a calendar failed', () => {

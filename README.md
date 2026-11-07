@@ -72,7 +72,7 @@ is ignored by git and never served.
 
 ### Popups along the bottom
 
-`timetable`, `solar` and `hive` each add a button at the bottom left. Tapping one covers the
+`timetable`, `solar` and `hive` each add a button at the bottom left, beside the Timer button. Tapping one covers the
 dashboard with a full-screen popup, which goes back to the dashboard after two minutes
 or when Close is tapped.
 
@@ -108,6 +108,25 @@ or when Close is tapped.
   which is ignored by git, never served, and works like a password. If the popup says
   Hive needs signing in again, run it again. The server reads Hive at most every 30
   seconds, and only while the popup is open.
+
+### Kitchen timers
+
+The Timer button at the bottom left is always there. It opens a grid of common times
+(5, 10, 15, 25, 30 and 45 minutes, and 1, 1½ and 2 hours; 25 is picked out because
+it's the one used most) and a slider for anything from 1 minute to 4 hours. The slider is
+logarithmic, so the short times people set most get as much travel as the long ones. Tapping a
+time starts it and goes back to the dashboard.
+
+Up to three run at once, listed soonest first under the calendar. Each keeps its own colour
+(amber, teal or violet) while it runs, fills its card with that colour for its last minute,
+and when done flashes red and beeps every couple of seconds until Dismiss is tapped (the
+beeping stops by itself after ten minutes; the flashing doesn't). Finishing closes any
+popup so the dashboard is in view.
+
+Timers live on the tablet, not the server, and are kept in the browser's storage, so a
+reload keeps them. Browsers only allow sound after a tap on the page, so after a reload
+a timer can't beep until someone touches the screen; it still flashes. In Fully Kiosk
+Browser, also check that the tablet's media volume is up.
 
 ### Choosing music
 

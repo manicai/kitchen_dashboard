@@ -108,6 +108,12 @@
         <path d="M34 12h5M34 19h5M34 26h3"/>
       </g>
     </symbol>
+    <symbol id="icon-timer" viewBox="0 0 48 48">
+      <g fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="24" cy="27" r="16"/>
+        <path d="M24 27V18M19 4h10M24 4v7M37 12l3-3"/>
+      </g>
+    </symbol>
   </svg>
 
   <main id="dashboard" class="dashboard no-side">
@@ -180,6 +186,11 @@
           <p id="events-message" class="events-message" role="status"></p>
           <p id="events-warning" class="events-warning"></p>
         </section>
+
+        <!-- Running kitchen timers, under the calendar. Started from the Timer button. -->
+        <section id="timers" class="timers is-hidden" aria-label="Kitchen timers">
+          <ul id="timers-list" class="timers-list"></ul>
+        </section>
       </div>
     </div>
 
@@ -188,6 +199,10 @@
         <!-- Starts music when the Sonos card isn't showing because nothing is playing. -->
         <button id="footer-music" class="footer-music is-hidden" type="button" aria-label="Choose music">
           <svg class="icon" aria-hidden="true"><use xlink:href="#icon-music"/></svg>
+        </button>
+        <button id="button-timer" class="footer-button" type="button">
+          <svg class="icon" aria-hidden="true"><use xlink:href="#icon-timer"/></svg>
+          <span>Timer</span>
         </button>
         <!-- Each opens a popup for a couple of minutes. Shown when set up in widgets.json. -->
         <button id="button-timetable" class="footer-button is-hidden" type="button">
@@ -217,6 +232,26 @@
     <p id="popup-message" class="popup-message" role="status"></p>
     <div id="popup-body" class="popup-body"></div>
     <p id="popup-status" class="popup-status"></p>
+  </section>
+
+  <!-- Starts a kitchen timer. Closes itself after a couple of minutes, like the popups. -->
+  <section id="timer-picker" class="popup is-hidden" role="dialog" aria-labelledby="timer-picker-title">
+    <div class="popup-header">
+      <h1 id="timer-picker-title" class="popup-title">Timer</h1>
+      <span id="timer-picker-running" class="popup-subtitle"></span>
+      <button id="timer-picker-close" class="popup-close" type="button">Close</button>
+    </div>
+    <p id="timer-picker-message" class="popup-message" role="status"></p>
+    <div class="timer-picker-body">
+      <div id="timer-presets" class="timer-presets"></div>
+      <div class="timer-custom">
+        <div class="widget-label">Other time</div>
+        <div id="timer-custom-value" class="timer-custom-value"></div>
+        <input id="timer-custom-slider" class="timer-slider" type="range" min="0" max="1000" step="1" aria-label="Timer length">
+        <div class="timer-slider-scale"><span>1 min</span><span>15 min</span><span>4 hr</span></div>
+        <button id="timer-custom-start" class="timer-start" type="button">Start</button>
+      </div>
+    </div>
   </section>
 
   <section id="music" class="setup music is-hidden" aria-labelledby="music-title">

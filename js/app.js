@@ -58,6 +58,19 @@
   var BINS_REFRESH_MS = 60 * 60 * 1000;
   var SONOS_ACTIVE_MS = 5 * 1000;
   var SONOS_IDLE_MS = 15 * 1000;
+  var TIMERS_KEY = 'kitchen.timers';
+  var timers = []; // Running kitchen timers: { id, minutes, slot, endsAt }, saved so a reload keeps them.
+  var timerTick = null;
+  var timerIds = ''; // The timers on screen, in order, to tell an update from a rebuild.
+  var timerStates = {}; // Each timer's last state, to notice the moment one finishes.
+  var timerPickerTimer = null;
+  var timerPickerClosesAt = 0;
+  var timerMinutes = 20; // The slider's choice.
+  // Beeps for this long after a timer finishes, then the card just keeps flashing.
+  var ALARM_MS = 10 * 60 * 1000;
+  var ALARM_REPEAT_MS = 2000;
+  var alarmTimer = null;
+  var audio = null; // Web Audio, set up on the first tap because browsers only allow sound after one.
   var SONOS_BUTTONS = {
     'toggle': 'sonos-toggle',
     'next': 'sonos-next',
@@ -330,7 +343,10 @@
     var now = new Date();
     var hasBins = renderBins(now);
     var hasSonos = renderSonos();
-    el('dashboard').className = hasBins || hasSonos || hasCalendars() ? 'dashboard' : 'dashboard no-side';
+    var hasTimers;
+    renderTimers(now.getTime());
+    hasTimers = timers.length > 0;
+    el('dashboard').className = hasBins || hasSonos || hasTimers || hasCalendars() ? 'dashboard' : 'dashboard no-side';
     renderClock(now);
     renderWeather(now);
     renderEvents(now); // Last, as fitting the list measures the laid-out column.
@@ -384,6 +400,230 @@
       sonosBusy = null;
       refreshSonos();
     }, 'POST');
+  }
+
+  // Kitchen timers: started from the Timer button, shown under the calendar while
+  // they run, and beeping and flashing when they finish until they're dismissed.
+
+  function unlockAudio() {
+    var Context = window.AudioContext || window.webkitAudioContext;
+    try {
+      if (!audio && Context) {
+        audio = new Context();
+      }
+      if (audio && audio.state === 'suspended') {
+        audio.resume();
+      }
+    } catch (e) {
+      audio = null; // No sound, but the timers still flash.
+    }
+  }
+
+  // Three short high beeps, loud enough to hear over a pan.
+  function beep() {
+    var start;
+    if (!audio) {
+      return;
+    }
+    try {
+      start = audio.currentTime + 0.05;
+      [0, 0.3, 0.6].forEach(function (offset) {
+        var osc = audio.createOscillator();
+        var gain = audio.createGain();
+        var t = start + offset;
+        osc.type = 'square';
+        osc.frequency.value = 1760;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.4, t + 0.01);
+        gain.gain.setValueAtTime(0.4, t + 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+        osc.connect(gain);
+        gain.connect(audio.destination);
+        osc.start(t);
+        osc.stop(t + 0.22);
+      });
+    } catch (e) {
+      // Sound is a bonus; the flashing card is the alarm that always works.
+    }
+  }
+
+  // Keeps beeping while a timer that finished in the last few minutes is waiting.
+  function updateAlarm(now) {
+    var ringing = timers.some(function (timer) {
+      return timer.endsAt <= now && now - timer.endsAt < ALARM_MS;
+    });
+    if (ringing && !alarmTimer) {
+      beep();
+      alarmTimer = window.setInterval(function () {
+        updateAlarm(Date.now());
+        if (alarmTimer) {
+          beep();
+        }
+      }, ALARM_REPEAT_MS);
+    } else if (!ringing && alarmTimer) {
+      window.clearInterval(alarmTimer);
+      alarmTimer = null;
+    }
+  }
+
+  function saveTimers() {
+    save(TIMERS_KEY, timers.length ? timers : null);
+  }
+
+  function startTimer(minutes) {
+    unlockAudio();
+    if (timers.length >= core.TIMER_MAX) {
+      return;
+    }
+    timers.push(core.createTimer(timers, minutes, Date.now()));
+    saveTimers();
+    closeTimerPicker();
+    render();
+  }
+
+  function removeTimer(id) {
+    timers = timers.filter(function (timer) {
+      return timer.id !== id;
+    });
+    delete timerStates[id];
+    saveTimers();
+    updateAlarm(Date.now());
+    render();
+  }
+
+  function createTimerItem(timer) {
+    var item = document.createElement('li');
+    var text = createDiv('timer-text');
+    var bar = createDiv('timer-bar');
+    var button = document.createElement('button');
+    text.appendChild(createDiv('timer-label'));
+    text.appendChild(createDiv('timer-remaining'));
+    bar.appendChild(createDiv('timer-bar-fill'));
+    button.type = 'button';
+    button.className = 'timer-button';
+    button.addEventListener('click', function () {
+      removeTimer(timer.id);
+    });
+    item.appendChild(text);
+    item.appendChild(button);
+    item.appendChild(bar);
+    return item;
+  }
+
+  // Updates in place each second, so a tap on Cancel isn't lost to a rebuilt button.
+  function updateTimerItem(item, timer) {
+    item.className = 'timer timer--slot' + timer.slot % 3 + ' timer--' + timer.state;
+    item.childNodes[0].childNodes[0].textContent = timer.label;
+    item.childNodes[0].childNodes[1].textContent = timer.remaining;
+    item.childNodes[1].textContent = timer.state === 'done' ? 'Dismiss' : 'Cancel';
+    item.childNodes[2].childNodes[0].style.width = (timer.fraction * 100).toFixed(2) + '%';
+  }
+
+  // Returns whether the list changed shape, which moves the calendar about.
+  function renderTimers(now) {
+    var view = core.buildTimersView(timers, now);
+    var list = el('timers-list');
+    var ids = view.map(function (timer) { return timer.id; }).join(' ');
+    var rebuilt = ids !== timerIds;
+    var finished = false;
+
+    show('timers', view.length > 0, 'timers');
+    if (rebuilt) {
+      clear(list);
+      view.forEach(function (timer) {
+        list.appendChild(createTimerItem(timer));
+      });
+      timerIds = ids;
+    }
+    view.forEach(function (timer, i) {
+      if (timer.state === 'done' && timerStates[timer.id] && timerStates[timer.id] !== 'done') {
+        finished = true;
+      }
+      timerStates[timer.id] = timer.state;
+      updateTimerItem(list.childNodes[i], timer);
+    });
+    // Brings the dashboard back so whoever is cooking sees which one it was.
+    if (finished) {
+      closePopup();
+      closeMusic();
+      closeTimerPicker();
+    }
+    updateAlarm(now);
+    scheduleTimerTick(now);
+    return rebuilt;
+  }
+
+  // Once a second, on the second, while any timer is running.
+  function scheduleTimerTick(now) {
+    window.clearTimeout(timerTick);
+    timerTick = null;
+    if (!timers.length) {
+      return;
+    }
+    timerTick = window.setTimeout(function () {
+      if (renderTimers(Date.now())) {
+        render();
+      }
+    }, 1000 - now % 1000 + 20);
+  }
+
+  function renderTimerPicker() {
+    var full = timers.length >= core.TIMER_MAX;
+    var buttonsList = el('timer-presets').getElementsByTagName('button');
+    var i;
+    el('timer-picker-running').textContent = timers.length ?
+      timers.length + ' running' : '';
+    el('timer-picker-message').textContent = full ?
+      core.TIMER_MAX + ' timers are running. Cancel one on the dashboard to start another.' : '';
+    for (i = 0; i < buttonsList.length; i++) {
+      buttonsList[i].disabled = full;
+    }
+    el('timer-custom-start').disabled = full;
+    el('timer-custom-value').textContent = core.formatMinutes(timerMinutes);
+  }
+
+  function buildTimerPresets() {
+    var box = el('timer-presets');
+    core.TIMER_PRESETS.forEach(function (minutes) {
+      var button = document.createElement('button');
+      var hours = minutes / 60;
+      button.type = 'button';
+      button.className = 'timer-preset' + (minutes === 25 ? ' timer-preset--usual' : '');
+      // Hours past the hour, so 90 reads as 1½ hours rather than 1 hr 30 min.
+      button.appendChild(createDiv('timer-preset-number', minutes < 60 ? String(minutes) :
+        Math.floor(hours) + (hours % 1 ? '\u00bd' : '')));
+      button.appendChild(createDiv('timer-preset-unit', minutes < 60 ? 'min' : hours === 1 ? 'hour' : 'hours'));
+      button.addEventListener('click', function () {
+        startTimer(minutes);
+      });
+      box.appendChild(button);
+    });
+  }
+
+  function openTimerPicker() {
+    unlockAudio();
+    closePopup();
+    closeMusic();
+    el('timer-custom-slider').value = core.minutesToSlider(timerMinutes);
+    timerPickerClosesAt = Date.now() + POPUP_MS;
+    window.clearTimeout(timerPickerTimer);
+    timerPickerTimer = window.setTimeout(closeTimerPicker, POPUP_MS);
+    el('timer-picker').className = 'popup timer-picker';
+    renderTimerPicker();
+  }
+
+  function closeTimerPicker() {
+    window.clearTimeout(timerPickerTimer);
+    el('timer-picker').className = 'popup timer-picker is-hidden';
+  }
+
+  function onTimerSlider() {
+    timerMinutes = core.sliderToMinutes(Number(el('timer-custom-slider').value));
+    // Dragging counts as using it, so it doesn't close mid-choice.
+    timerPickerClosesAt = Date.now() + POPUP_MS;
+    window.clearTimeout(timerPickerTimer);
+    timerPickerTimer = window.setTimeout(closeTimerPicker, POPUP_MS);
+    renderTimerPicker();
   }
 
   // Music picker: what was last started from it, Sonos favourites and playlists,
@@ -581,6 +821,7 @@
   }
 
   function openMusic() {
+    closeTimerPicker();
     el('music-input').value = '';
     stopListening();
     el('music').className = 'setup music';
@@ -905,6 +1146,7 @@
 
   function openPopup(kind) {
     closePopup();
+    closeTimerPicker();
     popup = kind;
     popupFailed = false;
     popupClosesAt = Date.now() + POPUP_MS;
@@ -1002,6 +1244,9 @@
     if (popup && Date.now() >= popupClosesAt) {
       closePopup();
     }
+    if (Date.now() >= timerPickerClosesAt) {
+      closeTimerPicker();
+    }
     if (!buttons) {
       loadButtons();
     }
@@ -1023,6 +1268,11 @@
 
   function start() {
     forecast = load(FORECAST_KEY);
+    timers = core.validTimers(load(TIMERS_KEY));
+    // Ones that finished while the page was closed show as done but don't ring as new.
+    timers.forEach(function (timer) {
+      timerStates[timer.id] = timer.endsAt <= Date.now() ? 'done' : 'running';
+    });
 
     document.addEventListener('visibilitychange', catchUp);
     window.addEventListener('online', catchUp);
@@ -1052,6 +1302,16 @@
       openPopup('hive');
     });
     el('popup-close').addEventListener('click', closePopup);
+    el('button-timer').addEventListener('click', openTimerPicker);
+    el('timer-picker-close').addEventListener('click', closeTimerPicker);
+    el('timer-custom-slider').addEventListener('input', onTimerSlider);
+    el('timer-custom-slider').addEventListener('change', onTimerSlider);
+    el('timer-custom-start').addEventListener('click', function () {
+      startTimer(timerMinutes);
+    });
+    // Any tap allows sound, so an alarm can ring even after the page reloads.
+    document.addEventListener('click', unlockAudio, true);
+    buildTimerPresets();
     el('music-mic').addEventListener('click', listen);
     el('music-form').addEventListener('submit', function (event) {
       event.preventDefault();

@@ -605,7 +605,106 @@
     };
   }
 
+
+  // Kitchen timers. Times are kept as end timestamps, so a timer stays right
+  // however late the page's own timers fire (the tablet can stall them).
+  var TIMER_PRESETS = [5, 10, 15, 25, 30, 45, 60, 90, 120];
+  var TIMER_MAX = 3;
+  var TIMER_SLIDER_MIN = 1;
+  var TIMER_SLIDER_MAX = 240;
+  var TIMER_SLIDER_STEPS = 1000;
+  // The last stretch is highlighted so it's clear which pan needs attention next.
+  var TIMER_SOON_MS = 60 * 1000;
+
+  // Coarser steps further up the slider, so it lands on times people set.
+  function roundTimerMinutes(minutes) {
+    var step = minutes < 20 ? 1 : minutes < 120 ? 5 : 10;
+    var rounded = Math.round(minutes / step) * step;
+    return Math.max(TIMER_SLIDER_MIN, Math.min(TIMER_SLIDER_MAX, rounded));
+  }
+
+  // The slider is logarithmic: as much travel for 1 to 15 minutes as for 15 to 240.
+  function sliderToMinutes(position) {
+    var fraction = Math.max(0, Math.min(1, position / TIMER_SLIDER_STEPS));
+    var span = Math.log(TIMER_SLIDER_MAX / TIMER_SLIDER_MIN);
+    return roundTimerMinutes(TIMER_SLIDER_MIN * Math.exp(fraction * span));
+  }
+
+  function minutesToSlider(minutes) {
+    var clamped = Math.max(TIMER_SLIDER_MIN, Math.min(TIMER_SLIDER_MAX, minutes));
+    var span = Math.log(TIMER_SLIDER_MAX / TIMER_SLIDER_MIN);
+    return Math.round(Math.log(clamped / TIMER_SLIDER_MIN) / span * TIMER_SLIDER_STEPS);
+  }
+
+  // Rounds up, so a timer never shows 0:00 while it still has time to run.
+  function formatCountdown(ms) {
+    var total = Math.max(0, Math.ceil(ms / 1000));
+    var hours = Math.floor(total / 3600);
+    var minutes = Math.floor(total % 3600 / 60);
+    var seconds = total % 60;
+    return (hours ? hours + ':' + pad(minutes) : String(minutes)) + ':' + pad(seconds);
+  }
+
+  // The lowest colour slot no running timer has, so each keeps its colour.
+  function freeTimerSlot(timers) {
+    var slot = 0;
+    var used = (timers || []).map(function (timer) { return timer.slot; });
+    while (used.indexOf(slot) !== -1) {
+      slot++;
+    }
+    return slot;
+  }
+
+  function createTimer(timers, minutes, nowMs) {
+    return {
+      id: String(nowMs) + '-' + freeTimerSlot(timers),
+      minutes: minutes,
+      slot: freeTimerSlot(timers),
+      endsAt: nowMs + minutes * 60 * 1000
+    };
+  }
+
+  // Drops anything malformed, such as a stored list from an older version.
+  function validTimers(timers) {
+    if (!(timers instanceof Array)) {
+      return [];
+    }
+    return timers.filter(function (timer) {
+      return timer && typeof timer.id === 'string' && typeof timer.endsAt === 'number' &&
+        typeof timer.minutes === 'number' && timer.minutes > 0 && typeof timer.slot === 'number';
+    }).slice(0, TIMER_MAX);
+  }
+
+  // Soonest first, so the next thing to come out of the oven is on top.
+  function buildTimersView(timers, nowMs) {
+    return validTimers(timers).slice().sort(function (a, b) {
+      return a.endsAt - b.endsAt;
+    }).map(function (timer) {
+      var duration = timer.minutes * 60 * 1000;
+      var left = timer.endsAt - nowMs;
+      var state = left <= 0 ? 'done' : left <= TIMER_SOON_MS ? 'soon' : 'running';
+      return {
+        id: timer.id,
+        slot: timer.slot,
+        label: formatMinutes(timer.minutes),
+        remaining: state === 'done' ? 'Done' : formatCountdown(left),
+        // Share of the time still to go, for the bar under the countdown.
+        fraction: Math.max(0, Math.min(1, left / duration)),
+        state: state
+      };
+    });
+  }
+
   var api = {
+    TIMER_PRESETS: TIMER_PRESETS,
+    TIMER_MAX: TIMER_MAX,
+    TIMER_SLIDER_STEPS: TIMER_SLIDER_STEPS,
+    sliderToMinutes: sliderToMinutes,
+    minutesToSlider: minutesToSlider,
+    formatCountdown: formatCountdown,
+    createTimer: createTimer,
+    validTimers: validTimers,
+    buildTimersView: buildTimersView,
     buildTimetableView: buildTimetableView,
     buildSolarView: buildSolarView,
     buildSolarChart: buildSolarChart,

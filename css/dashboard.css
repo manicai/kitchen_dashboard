@@ -559,20 +559,23 @@ input {
   color: #a3a8ad;
 }
 
-/* Popup buttons, and the music button when it shows, along the bottom left. */
+/* Popup buttons, and the music button when it shows, spread evenly across the space
+   left of the weather status. */
 .footer-buttons {
   display: -webkit-flex;
   display: flex;
+  -webkit-flex: 1;
+  flex: 1;
+  -webkit-justify-content: space-around;
+  justify-content: space-around;
   -webkit-align-items: center;
   align-items: center;
-  margin-right: auto;
 }
 
 /* Opens the music picker while the Sonos card is hidden. */
 .footer-music {
   width: 2.75rem;
   height: 2.75rem;
-  margin-right: 0.5rem;
   padding: 0.5rem;
   box-sizing: border-box;
   border: 0;
@@ -586,7 +589,6 @@ input {
   -webkit-align-items: center;
   align-items: center;
   height: 2.75rem;
-  margin-right: 0.75rem;
   padding: 0 1.125rem 0 0.875rem;
   box-sizing: border-box;
   border: 0;

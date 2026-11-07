@@ -11,6 +11,8 @@
  */
 
 html {
+  /* Already dark: stops Android WebView force-dark repainting light parts, such as the slider thumb, black. */
+  color-scheme: dark;
   font-size: 2.66vmin;
   height: 100%;
 }

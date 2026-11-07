@@ -452,6 +452,9 @@
   // Three short high beeps, loud enough to hear over a pan.
   function beep() {
     var start;
+    // Sound may have been lost since the last tap (screen off, reload). Where the
+    // browser allows autoplay (Fully Kiosk's Autoplay Audio), this gets it back.
+    unlockAudio();
     if (!audio) {
       return;
     }

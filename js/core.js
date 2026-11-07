@@ -70,6 +70,11 @@
     return typeof value === 'number' ? Math.round(value) + '%' : '–';
   }
 
+  // "HH:MM" from an Open-Meteo local time such as "2026-11-01T16:31".
+  function formatClock(iso) {
+    return typeof iso === 'string' && /T\d\d:\d\d/.test(iso) ? iso.slice(11, 16) : '–';
+  }
+
   function describeWeather(code, isDay) {
     var match = WEATHER[code] || ['Unknown', 'cloud'];
     var icon = match[1];
@@ -129,6 +134,7 @@
       high: formatTemp(raw.daily.temperature_2m_max[today]),
       low: formatTemp(raw.daily.temperature_2m_min[today]),
       rainChance: formatPercent(raw.daily.precipitation_probability_max[today]),
+      sunset: formatClock(raw.daily.sunset && raw.daily.sunset[today]),
       hours: laterHours(raw.hourly, nowIso, offsets)
     };
   }
@@ -143,7 +149,7 @@
       '&longitude=' + encodeURIComponent(location.longitude) +
       '&current=temperature_2m,apparent_temperature,weather_code,is_day' +
       '&hourly=temperature_2m,weather_code,precipitation_probability,is_day' +
-      '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
+      '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunset' +
       '&timezone=auto&forecast_days=2';
   }
 

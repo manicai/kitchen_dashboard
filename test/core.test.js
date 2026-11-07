@@ -18,7 +18,8 @@ function sampleForecast() {
       time: ['2026-11-01', '2026-11-02'],
       temperature_2m_max: [12.4, 15],
       temperature_2m_min: [4.6, 7],
-      precipitation_probability_max: [80, 10]
+      precipitation_probability_max: [80, 10],
+      sunset: ['2026-11-01T16:31', '2026-11-02T16:29']
     }
   };
 }
@@ -96,6 +97,7 @@ test('buildWeatherView produces display strings for today', () => {
   assert.equal(view.high, '12°');
   assert.equal(view.low, '5°');
   assert.equal(view.rainChance, '80%');
+  assert.equal(view.sunset, '16:31');
   assert.equal(view.hours.length, 2);
 });
 
@@ -104,12 +106,20 @@ test('buildWeatherView uses the new day after midnight on a cached forecast', ()
   assert.equal(view.high, '15°');
   assert.equal(view.low, '7°');
   assert.equal(view.rainChance, '10%');
+  assert.equal(view.sunset, '16:29');
 });
 
 test('buildWeatherView shows dashes when today is not in the forecast', () => {
   const view = core.buildWeatherView(sampleForecast(), '2026-11-03T00:10', [1]);
   assert.equal(view.high, '–');
   assert.equal(view.rainChance, '–');
+  assert.equal(view.sunset, '–');
+});
+
+test('buildWeatherView copes with a cached forecast fetched before sunset was requested', () => {
+  const raw = sampleForecast();
+  delete raw.daily.sunset;
+  assert.equal(core.buildWeatherView(raw, '2026-11-01T14:49', [1]).sunset, '–');
 });
 
 test('isForecastUsable rejects forecasts six hours old or more', () => {

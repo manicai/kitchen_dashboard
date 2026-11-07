@@ -452,11 +452,14 @@ input {
 .stats {
   display: -webkit-flex;
   display: flex;
-  margin: 1.25rem 0 0;
+  /* Sunset drops to a second line when wide values (-12°, 100%) fill the row. */
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 1.25rem 0 -0.75rem;
 }
 
 .stat {
-  margin-right: 1.5rem;
+  margin: 0 1.25rem 0.75rem 0;
 }
 
 .stat:last-child {

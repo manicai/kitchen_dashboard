@@ -267,6 +267,7 @@
     el('stat-high').textContent = view.high;
     el('stat-low').textContent = view.low;
     el('stat-rain').textContent = view.rainChance;
+    el('stat-sunset').textContent = view.sunset;
     renderLater(view.hours);
   }
 

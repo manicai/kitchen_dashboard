@@ -1,8 +1,8 @@
 {
   "weather": {
-    "name": "Cambridge",
-    "latitude": 52.2053,
-    "longitude": 0.1218
+    "name": "London",
+    "latitude": 51.50735,
+    "longitude": -0.12776
   },
   "bins": {
     "url": "https://servicelayer3c.azure-api.net/wastecalendar/calendar/ical/200004201579"
@@ -11,8 +11,8 @@
     "room": "Kitchen"
   },
   "timetable": {
-    "name": "Robbie",
-    "file": "robbie_timetable.json"
+    "name": "Archie",
+    "file": "archie_timetable.json"
   },
   "solar": {
     "apiKey": "your-foxess-api-key",

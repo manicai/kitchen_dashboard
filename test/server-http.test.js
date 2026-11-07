@@ -168,3 +168,13 @@ test('Hive readings, boosts and stopping a boost go to the Hive widget', async (
   }, { hive });
   assert.deepEqual(calls, [['boost', 'h1', '60'], ['stop', 'w1']]);
 });
+
+test('every response carries the server version, so dashboards can reload on a change', async () => {
+  let version = 'a';
+  await withServer(idleStore, async (base) => {
+    assert.equal((await fetch(base + '/api/today')).headers.get('x-dashboard-version'), 'a');
+    assert.equal((await fetch(base + '/missing')).headers.get('x-dashboard-version'), 'a');
+    version = 'b';
+    assert.equal((await fetch(base + '/')).headers.get('x-dashboard-version'), 'b');
+  }, { version: () => version });
+});

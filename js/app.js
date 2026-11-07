@@ -73,6 +73,8 @@
   var ALARM_REPEAT_MS = 2000;
   var alarmTimer = null;
   var audio = null; // Web Audio, set up on the first tap because browsers only allow sound after one.
+  var serverVersion = null; // The server's version when this page loaded; a change means reload.
+  var reloadPending = false;
   var SONOS_BUTTONS = {
     'toggle': 'sonos-toggle',
     'next': 'sonos-next',
@@ -105,12 +107,38 @@
     }
   }
 
+  function isHidden(id) {
+    return el(id).className.indexOf('is-hidden') !== -1;
+  }
+
+  // Waits until nobody is using the page. Timers survive a reload but can't beep again
+  // until the next tap, so it also waits for them to be cleared.
+  function reloadWhenIdle() {
+    if (reloadPending && !timers.length && !popup && isHidden('music') && isHidden('timer-picker')) {
+      window.location.reload();
+    }
+  }
+
+  // Only our own server sends a version; other hosts (the forecast) give null.
+  function noteVersion(version) {
+    if (!version) {
+      return;
+    }
+    if (serverVersion === null) {
+      serverVersion = version;
+    } else if (version !== serverVersion) {
+      reloadPending = true;
+      reloadWhenIdle();
+    }
+  }
+
   function getJson(url, onSuccess, onError, method) {
     var xhr = new XMLHttpRequest();
     xhr.open(method || 'GET', url);
     xhr.timeout = REQUEST_TIMEOUT_MS;
     xhr.onload = function () {
       var body;
+      noteVersion(xhr.getResponseHeader('X-Dashboard-Version'));
       if (xhr.status < 200 || xhr.status >= 300) {
         onError();
         return;
@@ -1209,6 +1237,7 @@
       refreshBins();
     }
     renderedDate = date;
+    reloadWhenIdle();
     window.setTimeout(tick, 60000 - (now.getSeconds() * 1000 + now.getMilliseconds()));
   }
 

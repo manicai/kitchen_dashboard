@@ -27,6 +27,10 @@ const PUBLIC_FILES = {
   '/js/app.js': ['js/app.js', 'text/javascript; charset=utf-8']
 };
 
+// Sent on every response. When it changes, open dashboards reload themselves, so a
+// server restart (or a SIGHUP, see main) puts new code on the tablet without touching it.
+const VERSION_HEADER = 'X-Dashboard-Version';
+
 function send(res, status, type, body) {
   res.writeHead(status, { 'Content-Type': type, 'Cache-Control': status === 200 ? 'no-store' : 'no-cache' });
   res.end(body);
@@ -64,9 +68,10 @@ function sendJson(res, promise, what) {
 
 function createServer({
   store, bins = DISABLED_BINS, sonos = DISABLED_SONOS, timetable = DISABLED_TIMETABLE, solar = DISABLED_SOLAR,
-  hive = DISABLED_HIVE, location = DEFAULT_LOCATION, root
+  hive = DISABLED_HIVE, location = DEFAULT_LOCATION, version = () => 'dev', root
 }) {
   return http.createServer((req, res) => {
+    res.setHeader(VERSION_HEADER, version());
     const url = new URL(req.url, 'http://dashboard');
     const route = url.pathname;
     const sonosCommand = route.startsWith('/api/sonos/') ? route.slice('/api/sonos/'.length) : '';
@@ -254,7 +259,16 @@ function main() {
     boostTemperature: widgets.hive.boostTemperature
   }) : undefined;
   const location = widgets.location;
-  createServer({ store, bins, sonos, timetable, solar, hive, location, root }).listen(port, () => {
+  // A fresh id each start, so a restart after an update reloads the tablet. `kill -HUP`
+  // forces a reload without a restart, for example after changing only js/ or css/.
+  const startedAt = Date.now().toString(36);
+  let reloads = 0;
+  const version = () => startedAt + '.' + reloads;
+  process.on('SIGHUP', () => {
+    reloads++;
+    console.log('SIGHUP: open dashboards will reload');
+  });
+  createServer({ store, bins, sonos, timetable, solar, hive, location, version, root }).listen(port, () => {
     console.log('Kitchen dashboard on port ' + port + ' for ' + (location.name || 'the configured location') +
       ' with ' + calendars.length + ' calendar(s)' +
       (bins ? ', bins' : '') + (sonos ? ', Sonos room "' + widgets.sonos.room + '"' : '') +
@@ -266,4 +280,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { createServer, loadWidgets, DEFAULT_LOCATION };
+module.exports = { createServer, loadWidgets, DEFAULT_LOCATION, VERSION_HEADER };

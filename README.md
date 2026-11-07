@@ -18,6 +18,10 @@ The dashboard depends on this server, so it has to run on something that stays o
 such as a Raspberry Pi or NAS, set to the same time zone as the tablet. A static host
 won't work, because calendar providers don't let browsers read their feeds directly.
 
+After an update, restart the server and the tablet reloads itself, once nothing is open
+and no timers are set. To force that without a restart, for example after changing only
+`js/` or `css/`, send the server a SIGHUP (`kill -HUP <pid>`).
+
 ## Add calendars
 
 Create `calendars.json` next to this file, using `calendars.example.json` as a

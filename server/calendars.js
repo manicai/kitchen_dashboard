@@ -21,8 +21,38 @@ function parseConfig(text) {
     if (!entry || typeof entry.name !== 'string' || !entry.name.trim()) {
       throw new Error('Calendar ' + (index + 1) + ' in calendars.json needs a name');
     }
-    return { name: entry.name.trim(), url: parseFeedUrl(entry) };
+    const calendar = { name: entry.name.trim(), url: parseFeedUrl(entry) };
+    if (entry.strip !== undefined) {
+      calendar.strip = parseStrip(entry);
+    }
+    return calendar;
   });
+}
+
+// "strip" is a regular expression (or a list of them) removed from every event
+// title in that calendar, e.g. a prefix every fixture repeats.
+function parseStrip(entry) {
+  const patterns = Array.isArray(entry.strip) ? entry.strip : [entry.strip];
+  return patterns.map((pattern) => {
+    if (typeof pattern !== 'string' || !pattern) {
+      throw new Error('Calendar "' + entry.name + '" has a strip that is not a regular expression');
+    }
+    try {
+      new RegExp(pattern, 'g');
+    } catch (err) {
+      throw new Error('Calendar "' + entry.name + '" has an invalid strip: ' + err.message);
+    }
+    return pattern;
+  });
+}
+
+function stripTitle(title, patterns) {
+  const stripped = patterns
+    .reduce((text, pattern) => text.replace(new RegExp(pattern, 'g'), ''), title)
+    .replace(/\s+/g, ' ')
+    .trim();
+  // Never strip a title away entirely; the original is better than a blank.
+  return stripped || title;
 }
 
 function parseFeedUrl(entry) {
@@ -42,6 +72,7 @@ function createCalendarStore({ calendars, fetchText }) {
   const entries = calendars.map((calendar) => ({
     name: calendar.name,
     url: calendar.url,
+    strip: calendar.strip || [],
     parsed: null,
     fetchedAt: 0,
     failed: false,
@@ -78,7 +109,11 @@ function createCalendarStore({ calendars, fetchText }) {
       return [];
     }
     try {
-      return eventsOnDay(entry.parsed, now).map((event) => ({ ...event, calendar: entry.name }));
+      return eventsOnDay(entry.parsed, now).map((event) => ({
+        ...event,
+        title: stripTitle(event.title, entry.strip),
+        calendar: entry.name
+      }));
     } catch (err) {
       entry.failed = true;
       console.error('Calendar "' + entry.name + '" could not be read: ' + err.message);

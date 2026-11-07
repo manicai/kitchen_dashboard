@@ -39,6 +39,45 @@ test('parseConfig rejects addresses that are not web addresses', () => {
   assert.throws(() => parseConfig('[{"name":"y","url":"not a url"}]'), /y/);
 });
 
+test('parseConfig accepts strip as one pattern or a list', () => {
+  assert.deepEqual(
+    parseConfig('[{"name":"A","url":"https://a/","strip":"^Prefix"},{"name":"B","url":"https://b/","strip":["x","y"]}]')
+      .map((c) => c.strip),
+    [['^Prefix'], ['x', 'y']]
+  );
+  assert.equal(parseConfig('[{"name":"A","url":"https://a/"}]')[0].strip, undefined);
+});
+
+test('parseConfig rejects a strip that is not a valid regular expression', () => {
+  assert.throws(() => parseConfig('[{"name":"A","url":"https://a/","strip":"("}]'), /"A".*strip/);
+  assert.throws(() => parseConfig('[{"name":"A","url":"https://a/","strip":[3]}]'), /"A".*strip/);
+  assert.throws(() => parseConfig('[{"name":"A","url":"https://a/","strip":""}]'), /"A".*strip/);
+});
+
+test('strip removes the pattern from titles in that calendar only', async () => {
+  const feeds = {
+    'https://a/': ics('The Perse School Rugby Union Boys U13A vs Kings', '20261104T120000Z'),
+    'https://b/': ics('The Perse School Rugby Union Boys AGM', '20261104T130000Z')
+  };
+  const store = createCalendarStore({
+    calendars: [
+      { name: 'Robbie', url: 'https://a/', strip: ['^The Perse School Rugby Union Boys'] },
+      { name: 'Other', url: 'https://b/' }
+    ],
+    fetchText: async (url) => feeds[url]
+  });
+  assert.deepEqual((await store.today(NOW)).events.map((e) => e.title),
+    ['U13A vs Kings', 'The Perse School Rugby Union Boys AGM']);
+});
+
+test('strip keeps the original title rather than leaving it blank', async () => {
+  const store = createCalendarStore({
+    calendars: [{ name: 'A', url: 'https://a/', strip: ['.*'] }],
+    fetchText: async () => ics('Lunch', '20261104T120000Z')
+  });
+  assert.equal((await store.today(NOW)).events[0].title, 'Lunch');
+});
+
 test('today merges calendars, labels events and sorts all-day first then by time', async () => {
   const feeds = {
     'https://a/': ics('Lunch', '20261104T120000Z'),

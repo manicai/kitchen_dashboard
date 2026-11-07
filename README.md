@@ -37,6 +37,16 @@ starting point, then restart the server:
 `name` is shown beside each event when you have more than one calendar. In Google
 Calendar, the address is under Settings > your calendar > "Public address in iCal format".
 
+Add `strip` to remove text that every event in a calendar repeats, so the useful part
+fits on screen. It's a regular expression, or a list of them, and is removed from each
+title in that calendar (a title is never stripped to nothing):
+
+```json
+{ "name": "Robbie", "url": "https://...", "strip": "^The Perse School Rugby Union Boys\\s*" }
+```
+
+In JSON a backslash is written twice, so `\\s` above means the regular expression `\s`.
+
 `calendars.json` is ignored by git and never served, because feed addresses can work
 like passwords. Event titles are visible to anyone on your network who opens the page.
 

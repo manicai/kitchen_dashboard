@@ -449,7 +449,14 @@
     }
   }
 
-  // Three short high beeps, loud enough to hear over a pan.
+  // A rising three-note chime (C6, E6, G6), softer than a square-wave beep but still
+  // high enough to cut through a fan. Sine tones sound quieter than square ones at the
+  // same gain, so this runs hotter than the old 0.4.
+  var CHIME = [[0, 1047], [0.15, 1319], [0.3, 1568]];
+  var CHIME_PARTIALS = [[1, 1], [2, 0.2]]; // fundamental plus a quiet octave for a bell-like ring
+  var CHIME_GAIN = 0.5;
+  var CHIME_DECAY = 0.6;
+
   function beep() {
     var start;
     // Sound may have been lost since the last tap (screen off, reload). Where the
@@ -460,20 +467,24 @@
     }
     try {
       start = audio.currentTime + 0.05;
-      [0, 0.3, 0.6].forEach(function (offset) {
-        var osc = audio.createOscillator();
-        var gain = audio.createGain();
-        var t = start + offset;
-        osc.type = 'square';
-        osc.frequency.value = 1760;
-        gain.gain.setValueAtTime(0.0001, t);
-        gain.gain.exponentialRampToValueAtTime(0.4, t + 0.01);
-        gain.gain.setValueAtTime(0.4, t + 0.15);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
-        osc.connect(gain);
-        gain.connect(audio.destination);
-        osc.start(t);
-        osc.stop(t + 0.22);
+      CHIME.forEach(function (note) {
+        var t = start + note[0];
+        CHIME_PARTIALS.forEach(function (partial) {
+          var osc = audio.createOscillator();
+          var gain = audio.createGain();
+          var peak = CHIME_GAIN * partial[1];
+          // Higher partials fade sooner, as they do on a struck bell.
+          var end = t + 0.005 + CHIME_DECAY / Math.sqrt(partial[0]);
+          osc.type = 'sine';
+          osc.frequency.value = note[1] * partial[0];
+          gain.gain.setValueAtTime(0.0001, t);
+          gain.gain.exponentialRampToValueAtTime(peak, t + 0.005);
+          gain.gain.exponentialRampToValueAtTime(0.0001, end);
+          osc.connect(gain);
+          gain.connect(audio.destination);
+          osc.start(t);
+          osc.stop(end + 0.02);
+        });
       });
     } catch (e) {
       // Sound is a bonus; the flashing card is the alarm that always works.

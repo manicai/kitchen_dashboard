@@ -133,8 +133,8 @@ time starts it and goes back to the dashboard.
 
 Up to three run at once, listed soonest first under the calendar. Each keeps its own colour
 (amber, teal or violet) while it runs, fills its card with that colour for its last minute,
-and when done flashes red and beeps every couple of seconds until Dismiss is tapped (the
-beeping stops by itself after ten minutes; the flashing doesn't). Finishing closes any
+and when done flashes red and plays a rising chime every couple of seconds until Dismiss
+is tapped (the chime stops by itself after ten minutes; the flashing doesn't). Finishing closes any
 popup so the dashboard is in view.
 
 Each card has +5, which adds five minutes to what's left, or on a finished timer runs it
@@ -144,7 +144,7 @@ of seconds after a +5 so the second tap lands on the same one, then go back to s
 
 Timers live on the tablet, not the server, and are kept in the browser's storage, so a
 reload keeps them. Browsers only allow sound after a tap on the page, so after a reload
-a timer can't beep until someone touches the screen; it still flashes. In Fully Kiosk
+a timer can't chime until someone touches the screen; it still flashes. In Fully Kiosk
 Browser, also check that the tablet's media volume is up.
 
 ### Choosing music

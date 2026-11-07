@@ -123,6 +123,11 @@ and when done flashes red and beeps every couple of seconds until Dismiss is tap
 beeping stops by itself after ten minutes; the flashing doesn't). Finishing closes any
 popup so the dashboard is in view.
 
+Each card has +5, which adds five minutes to what's left, or on a finished timer runs it
+for five more from now, for "not quite done yet". Every tap adds five, so a double tap
+adds ten, and the card shows how much has been added. The cards hold still for a couple
+of seconds after a +5 so the second tap lands on the same one, then go back to soonest first.
+
 Timers live on the tablet, not the server, and are kept in the browser's storage, so a
 reload keeps them. Browsers only allow sound after a tap on the page, so after a reload
 a timer can't beep until someone touches the screen; it still flashes. In Fully Kiosk

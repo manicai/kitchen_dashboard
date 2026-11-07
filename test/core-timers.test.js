@@ -76,3 +76,52 @@ test('stored timers that are malformed are dropped', () => {
     null
   ]).length, 1);
 });
+
+test('+5 adds to a running timer and keeps its start', () => {
+  const t = core.createTimer([], 25, 0);
+  const now = 10 * 60 * 1000;
+  const once = core.extendTimer(t, now);
+  const twice = core.extendTimer(once, now + 300);
+  assert.equal(once.endsAt, 30 * 60 * 1000);
+  assert.equal(twice.endsAt, 35 * 60 * 1000);
+  assert.equal(twice.startsAt, 0);
+  assert.equal(twice.minutes, 25);
+  const view = core.buildTimersView([twice], now)[0];
+  assert.equal(view.label, '25 min');
+  assert.equal(view.added, '+10 min');
+  assert.equal(view.state, 'running');
+  // 25 minutes left of 35 overall.
+  assert.equal(view.fraction.toFixed(3), (25 / 35).toFixed(3));
+});
+
+test('+5 on a finished timer runs five minutes from now', () => {
+  const t = core.createTimer([], 25, 0);
+  const now = 40 * 60 * 1000; // 15 minutes after it finished
+  const once = core.extendTimer(t, now);
+  assert.equal(once.startsAt, now);
+  assert.equal(once.endsAt, now + 5 * 60 * 1000);
+  const view = core.buildTimersView([once], now)[0];
+  assert.equal(view.state, 'running');
+  assert.equal(view.remaining, '5:00');
+  assert.equal(view.fraction, 1);
+  // A quick second tap adds to the new run rather than starting over.
+  assert.equal(core.extendTimer(once, now + 400).endsAt, now + 10 * 60 * 1000);
+});
+
+test('timers saved without a start still get a sensible bar', () => {
+  const view = core.buildTimersView([{ id: 'a', minutes: 10, slot: 0, endsAt: 5 * 60 * 1000 }], 0)[0];
+  assert.equal(view.fraction, 0.5);
+  assert.equal(view.added, '');
+});
+
+test('the order can be held while +5 is being tapped', () => {
+  const now = 0;
+  const timers = [
+    { id: 'a', minutes: 5, slot: 0, endsAt: 10 * 60 * 1000 },
+    { id: 'b', minutes: 5, slot: 1, endsAt: 5 * 60 * 1000 }
+  ];
+  assert.deepEqual(core.buildTimersView(timers, now).map((t) => t.id), ['b', 'a']);
+  assert.deepEqual(core.buildTimersView(timers, now, ['a', 'b']).map((t) => t.id), ['a', 'b']);
+  // A held order that no longer matches the timers is ignored.
+  assert.deepEqual(core.buildTimersView(timers, now, ['a', 'c']).map((t) => t.id), ['b', 'a']);
+});

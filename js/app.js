@@ -63,6 +63,8 @@
   var timerTick = null;
   var timerIds = ''; // The timers on screen, in order, to tell an update from a rebuild.
   var timerStates = {}; // Each timer's last state, to notice the moment one finishes.
+  var timerOrderHeldUntil = 0; // Cards stay put this long after a +5, so a double tap hits the same one.
+  var TIMER_HOLD_MS = 2000;
   var timerPickerTimer = null;
   var timerPickerClosesAt = 0;
   var timerMinutes = 20; // The slider's choice.
@@ -491,20 +493,43 @@
     render();
   }
 
+  function extendTimer(id) {
+    var now = Date.now();
+    timers = timers.map(function (timer) {
+      return timer.id === id ? core.extendTimer(timer, now) : timer;
+    });
+    timerOrderHeldUntil = now + TIMER_HOLD_MS;
+    saveTimers();
+    updateAlarm(now); // Stops the beeping if this was the one ringing.
+    render();
+  }
+
   function createTimerItem(timer) {
     var item = document.createElement('li');
     var text = createDiv('timer-text');
     var bar = createDiv('timer-bar');
     var button = document.createElement('button');
-    text.appendChild(createDiv('timer-label'));
+    var more = document.createElement('button');
+    var labels = createDiv('timer-labels');
+    labels.appendChild(createDiv('timer-label'));
+    labels.appendChild(createDiv('timer-added'));
+    text.appendChild(labels);
     text.appendChild(createDiv('timer-remaining'));
     bar.appendChild(createDiv('timer-bar-fill'));
+    more.type = 'button';
+    more.className = 'timer-button timer-more';
+    more.textContent = '+5';
+    more.setAttribute('aria-label', 'Add 5 minutes');
+    more.addEventListener('click', function () {
+      extendTimer(timer.id);
+    });
     button.type = 'button';
-    button.className = 'timer-button';
+    button.className = 'timer-button timer-close';
     button.addEventListener('click', function () {
       removeTimer(timer.id);
     });
     item.appendChild(text);
+    item.appendChild(more);
     item.appendChild(button);
     item.appendChild(bar);
     return item;
@@ -513,15 +538,17 @@
   // Updates in place each second, so a tap on Cancel isn't lost to a rebuilt button.
   function updateTimerItem(item, timer) {
     item.className = 'timer timer--slot' + timer.slot % 3 + ' timer--' + timer.state;
-    item.childNodes[0].childNodes[0].textContent = timer.label;
+    item.childNodes[0].childNodes[0].childNodes[0].textContent = timer.label;
+    item.childNodes[0].childNodes[0].childNodes[1].textContent = timer.added;
     item.childNodes[0].childNodes[1].textContent = timer.remaining;
-    item.childNodes[1].textContent = timer.state === 'done' ? 'Dismiss' : 'Cancel';
-    item.childNodes[2].childNodes[0].style.width = (timer.fraction * 100).toFixed(2) + '%';
+    item.childNodes[2].textContent = timer.state === 'done' ? 'Dismiss' : 'Cancel';
+    item.childNodes[3].childNodes[0].style.width = (timer.fraction * 100).toFixed(2) + '%';
   }
 
   // Returns whether the list changed shape, which moves the calendar about.
   function renderTimers(now) {
-    var view = core.buildTimersView(timers, now);
+    var held = now < timerOrderHeldUntil && timerIds ? timerIds.split(' ') : null;
+    var view = core.buildTimersView(timers, now, held);
     var list = el('timers-list');
     var ids = view.map(function (timer) { return timer.id; }).join(' ');
     var rebuilt = ids !== timerIds;

@@ -659,9 +659,33 @@
     return {
       id: String(nowMs) + '-' + freeTimerSlot(timers),
       minutes: minutes,
+      added: 0,
       slot: freeTimerSlot(timers),
+      startsAt: nowMs,
       endsAt: nowMs + minutes * 60 * 1000
     };
+  }
+
+  var TIMER_EXTEND_MINUTES = 5;
+
+  // +5 adds to what's left, or, on a timer that's done, starts five minutes from now.
+  // Each tap adds another five, so two quick taps make ten.
+  function extendTimer(timer, nowMs) {
+    var step = TIMER_EXTEND_MINUTES * 60 * 1000;
+    var done = timer.endsAt <= nowMs;
+    return {
+      id: timer.id,
+      minutes: timer.minutes,
+      added: (timer.added || 0) + TIMER_EXTEND_MINUTES,
+      slot: timer.slot,
+      startsAt: done ? nowMs : timerStart(timer),
+      endsAt: done ? nowMs + step : timer.endsAt + step
+    };
+  }
+
+  // Timers saved before +5 existed have no start; they ran for their whole length.
+  function timerStart(timer) {
+    return typeof timer.startsAt === 'number' ? timer.startsAt : timer.endsAt - timer.minutes * 60 * 1000;
   }
 
   // Drops anything malformed, such as a stored list from an older version.
@@ -675,18 +699,28 @@
     }).slice(0, TIMER_MAX);
   }
 
-  // Soonest first, so the next thing to come out of the oven is on top.
-  function buildTimersView(timers, nowMs) {
-    return validTimers(timers).slice().sort(function (a, b) {
+  // Soonest first, so the next thing to come out of the oven is on top. `keepOrder`,
+  // a list of ids, holds the cards where they are instead (see app.js: so a second
+  // quick tap on +5 lands on the same card even if the first one moved it).
+  function buildTimersView(timers, nowMs, keepOrder) {
+    var list = validTimers(timers).slice();
+    var held = keepOrder && keepOrder.length === list.length && list.every(function (timer) {
+      return keepOrder.indexOf(timer.id) !== -1;
+    });
+    list.sort(held ? function (a, b) {
+      return keepOrder.indexOf(a.id) - keepOrder.indexOf(b.id);
+    } : function (a, b) {
       return a.endsAt - b.endsAt;
-    }).map(function (timer) {
-      var duration = timer.minutes * 60 * 1000;
+    });
+    return list.map(function (timer) {
+      var duration = Math.max(1, timer.endsAt - timerStart(timer));
       var left = timer.endsAt - nowMs;
       var state = left <= 0 ? 'done' : left <= TIMER_SOON_MS ? 'soon' : 'running';
       return {
         id: timer.id,
         slot: timer.slot,
         label: formatMinutes(timer.minutes),
+        added: timer.added ? '+' + timer.added + ' min' : '',
         remaining: state === 'done' ? 'Done' : formatCountdown(left),
         // Share of the time still to go, for the bar under the countdown.
         fraction: Math.max(0, Math.min(1, left / duration)),
@@ -703,6 +737,7 @@
     minutesToSlider: minutesToSlider,
     formatCountdown: formatCountdown,
     createTimer: createTimer,
+    extendTimer: extendTimer,
     validTimers: validTimers,
     buildTimersView: buildTimersView,
     buildTimetableView: buildTimetableView,
